@@ -336,6 +336,24 @@ static void close_session(void *ignored_context)
     }
 }
 
+static const char *UnquoteFile(const char *path) {
+	if (path == NULL || path[0] != '"') {
+		return strdup(path);
+	}
+	char *p = strdup(path + 1);
+	char *endquote = strrchr(p, '"');
+	if (endquote != NULL) {
+		*endquote = '\0';
+	}
+	return p;
+}
+static boolean FileExists(const char *path) {
+	char * p = UnquoteFile(path);
+	boolean exists = INVALID_FILE_ATTRIBUTES != GetFileAttributes(p);
+	free(p);
+	return exists;
+}
+
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 {
     MSG msg;
@@ -440,7 +458,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	 */
 	while (*p && isspace(*p))
 	    p++;
-	if (*p == '@') {
+	if (*p == '@' || (*p != '\0' && FileExists(p))) {
             /*
              * An initial @ means that the whole of the rest of the
              * command line should be treated as the name of a saved
@@ -448,16 +466,18 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
              * very convenient means of automated saved-session
              * launching, via IDM_SAVEDSESS or Windows 7 jump lists.
              */
-	    int i = strlen(p);
-	    while (i > 1 && isspace(p[i - 1]))
+		char *const filename = UnquoteFile(*p == '@' ? p + 1 : p);
+		int i = strlen(filename);
+		while (i > 0 && isspace(filename[i - 1]))
 		i--;
-	    p[i] = '\0';
-	    do_defaults(p + 1, conf);
+		filename[i] = '\0';
+		do_defaults(filename, conf);
 	    if (!conf_launchable(conf) && !do_config()) {
 		cleanup_exit(0);
 	    }
 	    allow_launch = TRUE;    /* allow it to be launched directly */
-	} else if (*p == '&') {
+	}
+	else if (*p == '&') {
 	    /*
 	     * An initial & means we've been given a command line
 	     * containing the hex value of a HANDLE for a file

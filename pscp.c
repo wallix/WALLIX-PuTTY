@@ -386,7 +386,7 @@ static void do_cmd(char *host, char *user, char *cmd)
 	if (conf_get_str(conf2, CONF_host)[0] != '\0') {
 	    /* Settings present and include hostname */
 	    /* Re-load data into the real config. */
-	    do_defaults(host, conf);
+	    do_defaults(host, conf, FALSE);
 	} else {
 	    /* Session doesn't exist or mention a hostname. */
 	    /* Use `host' as a bare hostname. */

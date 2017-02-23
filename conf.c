@@ -54,8 +54,19 @@ struct conf_entry {
 };
 
 struct conf_tag {
+	int has_default_values;
     tree234 *tree;
 };
+
+void conf_set_default_values(Conf *conf, int flag)
+{
+	conf->has_default_values = flag;
+}
+
+int conf_has_default_values(Conf *conf)
+{
+	return conf->has_default_values;
+}
 
 /*
  * Because 'struct key' is the first element in 'struct conf_entry',
@@ -167,6 +178,7 @@ Conf *conf_new(void)
 {
     Conf *conf = snew(struct conf_tag);
 
+	conf->has_default_values = FALSE;
     conf->tree = newtree234(conf_cmp);
 
     return conf;
@@ -175,6 +187,8 @@ Conf *conf_new(void)
 static void conf_clear(Conf *conf)
 {
     struct conf_entry *entry;
+
+	conf->has_default_values = FALSE;
 
     while ((entry = delpos234(conf->tree, 0)) != NULL)
 	free_entry(entry);
@@ -202,6 +216,9 @@ void conf_copy_into(Conf *newconf, Conf *oldconf)
 {
     struct conf_entry *entry, *entry2;
     int i;
+
+	newconf->has_default_values = oldconf->has_default_values;
+
 
     conf_clear(newconf);
 

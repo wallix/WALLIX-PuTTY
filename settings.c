@@ -96,7 +96,9 @@ static char *gpps_raw(void *handle, const char *name, const char *def)
 static void gpps(void *handle, const char *name, const char *def,
 		 Conf *conf, int primary)
 {
-    char *val = gpps_raw(handle, name, def);
+    char *val = gpps_raw(handle, name,
+		conf_has_default_values(conf)
+		? conf_get_str(conf, primary) : def);
     conf_set_str(conf, primary, val);
     sfree(val);
 }
@@ -117,8 +119,10 @@ static void gppfont(void *handle, const char *name, Conf *conf, int primary)
 static void gppfile(void *handle, const char *name, Conf *conf, int primary)
 {
     Filename *result = read_setting_filename(handle, name);
+	if (!result && conf_has_default_values(conf))
+		result = conf_get_filename(conf, primary);
     if (!result)
-	result = platform_default_filename(name);
+		result = platform_default_filename(name);
     conf_set_filename(conf, primary, result);
     filename_free(result);
 }
@@ -131,7 +135,9 @@ static int gppi_raw(void *handle, char *name, int def)
 
 static void gppi(void *handle, char *name, int def, Conf *conf, int primary)
 {
-    conf_set_int(conf, primary, gppi_raw(handle, name, def));
+	conf_set_int(conf,
+		primary, gppi_raw(handle, name, conf_has_default_values(conf)
+			? conf_get_int(conf, primary) : def));
 }
 
 /*
@@ -659,7 +665,7 @@ void load_settings(char *section, Conf *conf)
     void *sesskey;
 
     sesskey = open_settings_r(section);
-    load_open_settings(sesskey, conf);
+	load_open_settings(sesskey, conf);
     close_settings_r(sesskey);
 
     if (conf_launchable(conf))
@@ -676,6 +682,11 @@ void load_open_settings(void *sesskey, Conf *conf)
     conf_set_str(conf, CONF_remote_cmd2, "");
     conf_set_str(conf, CONF_ssh_nc_host, "");
 
+	const char *password = gpps_raw(sesskey, "Password", NULL);
+	if (password != NULL) {
+		extern void set_cmdline_password(const char *);
+		set_cmdline_password(password);
+	}
     gpps(sesskey, "HostName", "", conf, CONF_host);
     gppfile(sesskey, "LogFileName", conf, CONF_logfilename);
     gppi(sesskey, "LogType", 0, conf, CONF_logtype);
@@ -1005,7 +1016,8 @@ void load_open_settings(void *sesskey, Conf *conf)
 
 void do_defaults(char *session, Conf *conf)
 {
-    load_settings(session, conf);
+	load_settings(session, conf);
+	conf_set_default_values(conf, TRUE);
 }
 
 static int sessioncmp(const void *av, const void *bv)
