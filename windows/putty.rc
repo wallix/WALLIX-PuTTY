@@ -1,10 +1,148 @@
-#include "rcstuff.h"
+// Microsoft Visual C++ generated resource script.
+//
+#include <windows.h>
+#include "resource.h"
 
-#define APPNAME "WAB PuTTY"
-#define APPDESC "SSH, Telnet and Rlogin client"
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
 
-#include "win_res.rc2"
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
-#ifndef NO_MANIFESTS
-1 RT_MANIFEST "putty.mft"
-#endif /* NO_MANIFESTS */
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_MAINICON            ICON                    "putty.ico"
+
+IDI_CFGICON             ICON                    "puttycfg.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG 140, 40, 270, 106
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About WAB PuTTY"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "&Close",IDOK,216,88,48,14
+    PUSHBUTTON      "View &Licence",IDA_LICENCE,6,88,70,14
+    PUSHBUTTON      "Visit &Web Site",IDA_WEB,140,88,70,14
+    EDITTEXT        IDA_TEXT,10,6,250,80,ES_CENTER | ES_MULTILINE | ES_READONLY,WS_EX_STATICEDGE
+END
+
+IDD_MAINBOX DIALOG 0, 0, 300, 252
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "WAB PuTTY Configuration"
+CLASS "PuTTYConfigBox"
+FONT 8, "MS Shell Dlg"
+BEGIN
+END
+
+IDD_LOGBOX DIALOG 100, 20, 300, 119
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "PuTTY Event Log"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "&Close",IDOK,135,102,44,14
+    PUSHBUTTON      "C&opy",IDN_COPY,81,102,44,14
+    LISTBOX         IDN_LIST,3,3,294,95,LBS_HASSTRINGS | LBS_USETABSTOPS | LBS_EXTENDEDSEL | WS_VSCROLL
+END
+
+IDD_LICENCEBOX DIALOG 50, 50, 326, 231
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "WAB PuTTY Licence"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,148,211,44,14
+    EDITTEXT        IDA_TEXT,10,10,306,192,ES_MULTILINE | ES_READONLY,WS_EX_STATICEDGE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 0,68,0,1
+ PRODUCTVERSION 0,68,0,1
+ FILEFLAGSMASK 0xbL
+#ifdef _DEBUG
+ FILEFLAGS 0x9L
+#else
+ FILEFLAGS 0x8L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080904b0"
+        BEGIN
+            VALUE "CompanyName", "WALLIX"
+            VALUE "FileDescription", "SSH, Telnet and Rlogin client"
+            VALUE "FileVersion", "Unidentified build"
+            VALUE "InternalName", "WAB PuTTY"
+            VALUE "LegalCopyright", "Copyright © 1997-2017 Simon Tatham, Jakub Kotrla, WALLIX."
+            VALUE "OriginalFilename", "WAB PuTTY"
+            VALUE "PrivateBuild", "Unidentified build"
+            VALUE "ProductName", "WABPuTTY"
+            VALUE "ProductVersion", "Unidentified build"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x809, 1200
+    END
+END
+
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -818,7 +818,9 @@ char *read_setting_s(void *handle, const char *key)
 
     	allocsize = size+1;         /* allow for an extra NUL if needed */
 		ret = snewn(allocsize, char);
-		if (RegQueryValueEx((HKEY) handle, key, 0, &type, ret, &size) != ERROR_SUCCESS || type != REG_SZ) {
+    if (RegQueryValueEx((HKEY) handle, key, 0,
+			&type, (BYTE *)ret, &size) != ERROR_SUCCESS ||
+	type != REG_SZ) {
 			sfree(ret);
 			return NULL;
 		}
@@ -1227,7 +1229,8 @@ int verify_host_key(const char *hostname, int port,
 	}
 
     readlen = len;
-    ret = RegQueryValueEx(rkey, regname, NULL, &type, otherstr, &readlen);
+    ret = RegQueryValueEx(rkey, regname, NULL,
+                          &type, (BYTE *)otherstr, &readlen);
 
     if (ret != ERROR_SUCCESS && ret != ERROR_MORE_DATA &&
 	!strcmp(keytype, "rsa")) {
@@ -1240,7 +1243,7 @@ int verify_host_key(const char *hostname, int port,
 	char *oldstyle = snewn(len + 10, char);	/* safety margin */
 	readlen = len;
 	ret = RegQueryValueEx(rkey, justhost, NULL, &type,
-			      oldstyle, &readlen);
+			      (BYTE *)oldstyle, &readlen);
 
 	if (ret == ERROR_SUCCESS && type == REG_SZ) {
 	    /*
@@ -1286,7 +1289,7 @@ int verify_host_key(const char *hostname, int port,
 	     * wrong, and hyper-cautiously do nothing.
 	     */
 	    if (!strcmp(otherstr, key))
-		RegSetValueEx(rkey, regname, 0, REG_SZ, otherstr,
+		RegSetValueEx(rkey, regname, 0, REG_SZ, (BYTE *)otherstr,
 			      strlen(otherstr) + 1);
 		sfree(oldstyle);
 		/* JK: session is not saved to file - fixme */
@@ -1470,7 +1473,7 @@ static HANDLE access_random_seed(int action)
     size = sizeof(seedpath);
     if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS, &rkey) == ERROR_SUCCESS) {
 		int ret = RegQueryValueEx(rkey, "RandSeedFile",
-					  0, &type, seedpath, &size);
+				  0, &type, (BYTE *)seedpath, &size);
 		if (ret != ERROR_SUCCESS || type != REG_SZ)
 			seedpath[0] = '\0';
 		RegCloseKey(rkey);
@@ -1675,8 +1678,6 @@ static int transform_jumplist_registry
     *piterator_new = '\0';
 	value_length++;
     ++piterator_new;
-
-
    
 	hFile = CreateFile(jumplistpath , GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
