@@ -35,7 +35,7 @@ module putty
 ifeq "$(RELEASE)" "" set Ndate $(!builddate)
 ifneq "$(Ndate)" "" in . do echo $(Ndate) | perl -pe 's/(....)(..)(..)/$$1-$$2-$$3/' > date
 ifneq "$(Ndate)" "" read Date date
-set Epoch 16214 # update this at every release
+set Epoch 16280 # update this at every release
 ifneq "$(Ndate)" "" in . do echo $(Ndate) | perl -ne 'use Time::Local; /(....)(..)(..)/ and print timegm(0,0,0,$$3,$$2-1,$$1) / 86400 - $(Epoch)' > days
 ifneq "$(Ndate)" "" read Days days
 
@@ -139,8 +139,7 @@ ifneq "$(MAKEARGS)" "" set Makeargs $(Makeargs) $(MAKEARGS)
 in putty do ./mksrcarc.sh
 in putty do ./mkunxarc.sh '$(Autoconfver)' '$(Uxarcsuffix)' $(Docmakever)
 in putty do perl mkfiles.pl
-in putty/doc do make $(Docmakever) putty.hlp
-in putty/doc do make $(Docmakever) chm
+in putty/doc do make $(Docmakever) putty.hlp putty.chm
 
 # Munge the installer script locally so that it reports the version
 # we're really building.
@@ -172,12 +171,7 @@ delegate windows
   # provide a 'more info' URL, and an optional -n option to provide a
   # program name, and that it can take multiple .exe filename
   # arguments and sign them all in place.
-  ifneq "$(winsigncode)" "" in putty/windows do $(winsigncode) -i http://www.chiark.greenend.org.uk/~sgtatham/putty/ build*/*.exe
-
-  # Ignore exit code from hhc, in favour of seeing whether the .chm
-  # file was created. (Yuck; but hhc appears to return non-zero
-  # exit codes on whim.)
-  in putty/doc with htmlhelp do/win hhc putty.hhp & type putty.chm >nul
+  ifneq "$(winsigncode)" "" in putty/windows do $(winsigncode) -i https://www.chiark.greenend.org.uk/~sgtatham/putty/ build*/*.exe
 
   # Build a WiX MSI installer, for each of build32 and build64.
   in putty/windows with wix do/win candle -arch x86 -dWin64=no -dBuilddir=build32\ -dWinver="$(Winver)" -dPuttytextver="$(Puttytextver)" installer.wxs && light -ext WixUIExtension -ext WixUtilExtension -sval installer.wixobj -o installer32.msi
@@ -187,7 +181,7 @@ delegate windows
   in putty/windows with innosetup do/win iscc putty.iss
 
   # Sign the installers.
-  ifneq "$(winsigncode)" "" in putty/windows do $(winsigncode) -i http://www.chiark.greenend.org.uk/~sgtatham/putty/ -n "PuTTY Installer" installer32.msi installer64.msi Output/installer.exe
+  ifneq "$(winsigncode)" "" in putty/windows do $(winsigncode) -i https://www.chiark.greenend.org.uk/~sgtatham/putty/ -n "PuTTY Installer" installer32.msi installer64.msi Output/installer.exe
 
   # Finished Windows builds.
   return putty/windows/buildold/*.exe
@@ -196,7 +190,6 @@ delegate windows
   return putty/windows/build32/*.map
   return putty/windows/build64/*.exe
   return putty/windows/build64/*.map
-  return putty/doc/putty.chm
   return putty/windows/installer32.msi
   return putty/windows/installer64.msi
   return putty/windows/Output/installer.exe

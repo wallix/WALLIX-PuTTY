@@ -303,7 +303,7 @@ enum {
  * macros look impenetrable to you, you might find it helpful to
  * read
  * 
- *   http://www.chiark.greenend.org.uk/~sgtatham/coroutines.html
+ *   https://www.chiark.greenend.org.uk/~sgtatham/coroutines.html
  * 
  * which explains the theory behind these macros.
  * 
@@ -1036,20 +1036,20 @@ static void parse_ttymodes(Ssh ssh,
     int i;
     const struct ssh_ttymode *mode;
     char *val;
-    char default_val[2];
-
-    strcpy(default_val, "A");
 
     for (i = 0; i < lenof(ssh_ttymodes); i++) {
         mode = ssh_ttymodes + i;
-        val = conf_get_str_str_opt(ssh->conf, CONF_ttymodes, mode->mode);
-        if (!val)
-            val = default_val;
+	/* Every mode known to the current version of the code should be
+	 * mentioned; this was ensured when settings were loaded. */
+        val = conf_get_str_str(ssh->conf, CONF_ttymodes, mode->mode);
 
 	/*
-	 * val[0] is either 'V', indicating that an explicit value
-	 * follows it, or 'A' indicating that we should pass the
-	 * value through from the local environment via get_ttymode.
+	 * val[0] can be
+	 *  - 'V', indicating that an explicit value follows it;
+	 *  - 'A', indicating that we should pass the value through from
+	 *    the local environment via get_ttymode; or
+	 *  - 'N', indicating that we should explicitly not send this
+	 *    mode.
 	 */
 	if (val[0] == 'A') {
 	    val = get_ttymode(ssh->frontend, mode->mode);
@@ -1057,8 +1057,9 @@ static void parse_ttymodes(Ssh ssh,
 		do_mode(data, mode, val);
 		sfree(val);
 	    }
-	} else
+	} else if (val[0] == 'V') {
             do_mode(data, mode, val + 1);              /* skip the 'V' */
+	} /* else 'N', or something from the future we don't understand */
     }
 }
 
@@ -3559,8 +3560,8 @@ void ssh_connshare_log(Ssh ssh, int event, const char *logtext,
     }
 }
 
-static int ssh_closing(Plug plug, const char *error_msg, int error_code,
-		       int calling_back)
+static void ssh_closing(Plug plug, const char *error_msg, int error_code,
+			int calling_back)
 {
     Ssh ssh = (Ssh) plug;
     int need_notify = ssh_do_close(ssh, FALSE);
@@ -3582,18 +3583,15 @@ static int ssh_closing(Plug plug, const char *error_msg, int error_code,
 	logevent(error_msg);
     if (!ssh->close_expected || !ssh->clean_exit)
 	connection_fatal(ssh->frontend, "%s", error_msg);
-    return 0;
 }
 
-static int ssh_receive(Plug plug, int urgent, char *data, int len)
+static void ssh_receive(Plug plug, int urgent, char *data, int len)
 {
     Ssh ssh = (Ssh) plug;
     ssh_gotdata(ssh, (unsigned char *)data, len);
     if (ssh->state == SSH_STATE_CLOSED) {
 	ssh_do_close(ssh, TRUE);
-	return 0;
     }
-    return 1;
 }
 
 static void ssh_sent(Plug plug, int bufsize)

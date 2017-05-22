@@ -27,18 +27,18 @@ else.
 
 \I{supported features}In general, if you want to know if PuTTY supports
 a particular feature, you should look for it on the
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/}{PuTTY web site}.
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/}{PuTTY web site}.
 In particular:
 
 \b try the
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/changes.html}{changes
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/changes.html}{changes
 page}, and see if you can find the feature on there. If a feature is
 listed there, it's been implemented. If it's listed as a change made
 \e{since} the latest version, it should be available in the
 development snapshots, in which case testing will be very welcome.
 
 \b try the
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/}{Wishlist
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/}{Wishlist
 page}, and see if you can find the feature there. If it's on there,
 and not in the \q{Recently fixed} section, it probably \e{hasn't} been
 implemented.
@@ -54,7 +54,7 @@ version 0.52.
 \cw{ssh.com} SSH-2 private key files?
 
 PuTTY doesn't support this natively (see
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/key-formats-natively.html}{the wishlist entry}
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/key-formats-natively.html}{the wishlist entry}
 for reasons why not), but as of 0.53
 PuTTYgen can convert both OpenSSH and \cw{ssh.com} private key
 files into PuTTY's format.
@@ -215,17 +215,12 @@ seems to be working so far.
 Currently, release versions of PuTTY tools only run on Windows
 systems and Unix.
 
-As of 0.68, the supplied PuTTY executables run on versions of
-Windows from XP onwards, up to and including Windows 10; and we
-know of no reason why PuTTY should not continue to work on
-future versions of Windows.
-
-The 32-bit Windows executables we provide for the \q{\i{x86}}
-processor architecture should also work fine on 64-bit processors
-that are backward-compatible with that architecture. The 64-bit
-executables will only work on 64-bit versions of Windows. They
-will run somewhat faster than 32-bit executables would on the
-same processor, but will consume slightly more memory.
+As of 0.68, the supplied PuTTY executables run on versions of Windows
+from XP onwards, up to and including Windows 10; and we know of no
+reason why PuTTY should not continue to work on future versions of
+Windows. We provide 32-bit and 64-bit Windows executables; see
+\k{faq-32bit-64bit} for discussion of the compatibility issues around
+that.
 
 (We used to also provide executables for Windows for the Alpha
 processor, but stopped after 0.58 due to lack of interest.)
@@ -241,7 +236,7 @@ port, or any other port of PuTTY, they were mistaken. We don't.
 
 There are some third-party ports to various platforms, mentioned
 on the 
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/links.html}{Links page of our website}.
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/links.html}{Links page of our website}.
 
 \S{faq-unix}{Question} \I{Unix version}Is there a port to Unix?
 
@@ -283,12 +278,9 @@ expect our Unix port to be the right thing for everybody.
 
 \S{faq-wince}{Question} Will there be a port to Windows CE or PocketPC?
 
-We have done some work on such a port, but it only reached an early
+We once did some work on such a port, but it only reached an early
 stage, and certainly not a useful one. It's no longer being actively
 worked on.
-
-However, there's a third-party port at
-\W{http://www.pocketputty.net/}\c{http://www.pocketputty.net/}.
 
 \S{faq-win31}{Question} Is there a port to \i{Windows 3.1}?
 
@@ -331,7 +323,7 @@ for, it might be a long time before any of us get round to learning
 a new system and doing the port for that.
 
 However, some of the work has been done by other people; see the
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/links.html}{Links page of our website}
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/links.html}{Links page of our website}
 for various third-party ports.
 
 \S{faq-iphone}{Question} Will there be a port to the iPhone?
@@ -359,7 +351,7 @@ Most of the code cleanup work would be a good thing to happen in
 general, so if anyone feels like helping, we wouldn't say no.
 
 See also
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/dll-frontend.html}{the wishlist entry}.
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/dll-frontend.html}{the wishlist entry}.
 
 \S{faq-vb}{Question} Is the SSH or Telnet code available as a Visual
 Basic component?
@@ -424,7 +416,8 @@ put your chosen pathname in the Registry, at
 
 You can ask PuTTY to delete all this data; see \k{faq-cleanup}.
 
-On Unix, PuTTY stores all of this data in a directory \cw{~/.putty}.
+On Unix, PuTTY stores all of this data in a directory \cw{~/.putty}
+by default.
 
 \H{faq-howto} HOWTO questions
 
@@ -583,6 +576,28 @@ of quotes in the obvious way:
 
 \c pscp "local file" user@host:
 \c pscp user@host:"remote file" .
+
+\S{faq-32bit-64bit}{Question} Should I run the 32-bit or the
+64-bit version?
+
+If you're not sure, the \I{32-bit Windows}32-bit version is generally
+the safe option. It will run perfectly well on all processors and on
+all versions of Windows that PuTTY supports. PuTTY doesn't require to
+run as a 64-bit application to work well, and having a 32-bit PuTTY on
+a 64-bit system isn't likely to cause you any trouble.
+
+The 64-bit version (first released in 0.68) will only run if you have
+a 64-bit processor \e{and} a \I{64-bit Windows}64-bit edition of
+Windows (both of these things are likely to be true of any recent
+Windows PC). It will run somewhat faster (in particular, the
+cryptography will be faster, especially during link setup), but it
+will consume slightly more memory.
+
+If you need to use an external \i{DLL} for GSSAPI authentication, that
+DLL may only be available in a 32-bit or 64-bit form, and that will
+dictate the version of PuTTY you need to use. (You will probably know
+if you're doing this; see \k{config-ssh-auth-gssapi-libraries} in the
+documentation.)
 
 \H{faq-trouble} Troubleshooting
 
@@ -876,7 +891,7 @@ us \q{I wanted the F1 key to send \c{^[[11~}, but instead it's
 sending \c{^[OP}, can this be done?}, or something similar.
 
 You should still read the
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/feedback.html}{Feedback
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/feedback.html}{Feedback
 page} on the PuTTY website (also provided as \k{feedback} in the
 manual), and follow the guidelines contained in that.
 
@@ -1045,7 +1060,7 @@ still. We do not recommend it.)
 
 This is caused by a bug in certain versions of \i{Windows XP} which
 is triggered by PuTTY 0.58. This was fixed in 0.59. The
-\W{http://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/xp-wont-run}{\q{xp-wont-run}}
+\W{https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/xp-wont-run}{\q{xp-wont-run}}
 entry in PuTTY's wishlist has more details.
 
 \S{faq-system32}{Question} When I put 32-bit PuTTY in
