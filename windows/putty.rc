@@ -2,7 +2,6 @@
 //
 #include <windows.h>
 #include "resource.h"
-
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
 
@@ -72,8 +71,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,68,0,1
- PRODUCTVERSION 0,68,0,1
+ FILEVERSION 0,69,0,1
+ PRODUCTVERSION 0,69,0,1
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L
@@ -104,7 +103,6 @@ BEGIN
         VALUE "Translation", 0x809, 1200
     END
 END
-
 
 
 #ifdef APSTUDIO_INVOKED
