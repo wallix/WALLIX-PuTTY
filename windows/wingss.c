@@ -49,6 +49,7 @@ DECL_WINDOWS_FUNCTION(static, SECURITY_STATUS,
 DECL_WINDOWS_FUNCTION(static, SECURITY_STATUS,
 		      MakeSignature,
 		      (PCtxtHandle, ULONG, PSecBufferDesc, ULONG));
+typedef PVOID DLL_DIRECTORY_COOKIE;
 DECL_WINDOWS_FUNCTION(static, DLL_DIRECTORY_COOKIE,
                       AddDllDirectory,
                       (PCWSTR));
@@ -79,7 +80,7 @@ struct ssh_gss_liblist *ssh_gss_setup(Conf *conf)
     if (!kernel32_module) {
         kernel32_module = load_system32_dll("kernel32.dll");
     }
-#if defined _MSC_VER && _MSC_VER < 1900
+#if defined _MSC_VER && _MSC_VER < 1920
     /* Omit the type-check because older MSVCs don't have this function */
     GET_WINDOWS_FUNCTION_NO_TYPECHECK(kernel32_module, AddDllDirectory);
 #else

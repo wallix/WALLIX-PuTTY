@@ -8,8 +8,8 @@
  * default stuff used for local development runs of 'make'.
  */
 
-#define TEXTVER "WABPuTTY 0.68-1"
-#define SSHVER "WABPuTTY-Release-0.68.1"
+#define TEXTVER "WABPuTTY 0.69-1"
+#define SSHVER "WABPuTTY-Release-0.69.1"
 #define BINARY_VERSION 0,0,0,0
 
 #ifndef SOURCE_COMMIT
@@ -31,5 +31,5 @@
  * where you might go straight from local 'make' to 'make install'
  * without going through Buildscr.
  */
-#define SOURCE_COMMIT "0.68.1"
+#define SOURCE_COMMIT "0.69.1"
 #endif
