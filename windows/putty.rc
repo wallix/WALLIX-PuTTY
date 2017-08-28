@@ -1,6 +1,6 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include <windows.h>
+#include "windows.h"
 #include "resource.h"
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
@@ -28,7 +28,7 @@ IDI_CFGICON             ICON                    "puttycfg.ico"
 
 IDD_ABOUTBOX DIALOG 140, 40, 270, 106
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About WAB PuTTY"
+CAPTION "About WALLIX PuTTY"
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON   "&Close",IDOK,216,88,48,14
@@ -39,7 +39,7 @@ END
 
 IDD_MAINBOX DIALOG 0, 0, 300, 252
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "WAB PuTTY Configuration"
+CAPTION "WALLIX PuTTY Configuration"
 CLASS "PuTTYConfigBox"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -57,7 +57,7 @@ END
 
 IDD_LICENCEBOX DIALOG 50, 50, 326, 231
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "WAB PuTTY Licence"
+CAPTION "WALLIX PuTTY Licence"
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,148,211,44,14
@@ -71,8 +71,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,69,0,1
- PRODUCTVERSION 0,69,0,1
+ FILEVERSION 0,70,0,1
+ PRODUCTVERSION 0,70,0,1
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L
@@ -90,11 +90,11 @@ BEGIN
             VALUE "CompanyName", "WALLIX"
             VALUE "FileDescription", "SSH, Telnet and Rlogin client"
             VALUE "FileVersion", "Unidentified build"
-            VALUE "InternalName", "WAB PuTTY"
+            VALUE "InternalName", "WALLIX PuTTY"
             VALUE "LegalCopyright", "Copyright © 1997-2017 Simon Tatham, Jakub Kotrla, WALLIX."
-            VALUE "OriginalFilename", "WAB PuTTY"
+            VALUE "OriginalFilename", "WALLIX PuTTY"
             VALUE "PrivateBuild", "Unidentified build"
-            VALUE "ProductName", "WABPuTTY"
+            VALUE "ProductName", "WALLIX PuTTY"
             VALUE "ProductVersion", "Unidentified build"
         END
     END
