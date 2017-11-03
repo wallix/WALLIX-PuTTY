@@ -4,4 +4,4 @@ WALLIX Putty is a version of the famous Putty SSH client supporting file-based s
 
 See http://www.chiark.greenend.org.uk/~sgtatham/putty/ for the original PuTTY program and a complete documentation.
 
-WALLIX PutTTY is a fork of the Jakub Kortla work: http://jakub.kotrla.net/putty/
+WALLIX PuTTY is a fork of the Jakub Kortla work: http://jakub.kotrla.net/putty/
