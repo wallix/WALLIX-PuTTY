@@ -157,12 +157,6 @@
     <CustomBuild Include="..\..\puttycfg.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\..\putty.rc">
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\..\..\aqsync.c" />
     <ClCompile Include="..\..\..\be_all_s.c" />
     <ClCompile Include="..\..\..\be_misc.c" />
@@ -287,6 +281,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\banner.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\putty.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

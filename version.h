@@ -8,8 +8,8 @@
  * default stuff used for local development runs of 'make'.
  */
 
-#define TEXTVER "WALLIX PuTTY 0.70-1"
-#define SSHVER "WALLIX PuTTY-Release-0.70.1"
+#define TEXTVER "WALLIX PuTTY 0.70-2"
+#define SSHVER "WALLIX PuTTY-Release-0.70.2"
 #define BINARY_VERSION 0,0,0,0
 
 #ifndef SOURCE_COMMIT
@@ -31,5 +31,5 @@
  * where you might go straight from local 'make' to 'make install'
  * without going through Buildscr.
  */
-#define SOURCE_COMMIT "0.70.1"
+#define SOURCE_COMMIT "0.70.2"
 #endif
