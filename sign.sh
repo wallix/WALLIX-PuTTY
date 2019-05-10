@@ -9,14 +9,14 @@
 
 set -e
 
-keyname=EEF20295D15F7E8A
+keyname=38BA7229B7588FD1
 preliminary=false
 
 while :; do
     case "$1" in
         -r)
             shift
-            keyname=9DFE2648B43434E4
+            keyname=6289A25F4AE8DA82
             ;;
         -p)
             shift
@@ -49,6 +49,8 @@ else
     for i in putty*src.zip putty*.tar.gz \
              w32/*.exe w32/*.zip w32/*.msi \
              w64/*.exe w64/*.zip w64/*.msi \
+             wa32/*.exe wa32/*.zip wa32/*.msi \
+             wa64/*.exe wa64/*.zip wa64/*.msi \
              w32old/*.exe w32old/*.zip; do
         sign --detach-sign "$i" "$i.gpg"
     done

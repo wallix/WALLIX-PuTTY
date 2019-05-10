@@ -1,5 +1,5 @@
 # To compile this into a configure script, you need:
-# * Autoconf 2.50 or newer
+# * Autoconf 2.59c or newer
 # * Gtk (for $prefix/share/aclocal/gtk.m4)
 # * Automake (for aclocal)
 # If you've got them, running "autoreconf" should work.
@@ -16,6 +16,8 @@ AC_PROG_INSTALL
 AC_PROG_RANLIB
 ifdef([AM_PROG_AR],[AM_PROG_AR])
 AM_PROG_CC_C_O
+
+AC_PROG_CC_C99
 
 # Mild abuse of the '--enable' option format to allow manual
 # specification of setuid or setgid setup in pterm.
@@ -87,7 +89,7 @@ case "$gtk_version_desired" in
   *) AC_ERROR([Invalid GTK version specified])
 esac
 
-AC_CHECK_HEADERS([utmpx.h sys/select.h],,,[
+AC_CHECK_HEADERS([utmpx.h],,,[
 #include <sys/types.h>
 #include <utmp.h>])
 
@@ -98,34 +100,44 @@ gtk=none
 
 case "$gtk_version_desired:$gtk" in
   3:none | any:none)
-    ifdef([AM_PATH_GTK_3_0],[
-    AM_PATH_GTK_3_0([3.0.0], [gtk=3], [])
-    ],[AC_WARNING([generating configure script without GTK 3 autodetection])])
+    ifdef([AM_PATH_GTK_3_0],[AM_PATH_GTK_3_0([3.0.0], [gtk=3], [])],
+    [AC_WARNING([generating configure script without GTK 3 autodetection])])
     ;;
 esac
 
 case "$gtk_version_desired:$gtk" in
   2:none | any:none)
-    ifdef([AM_PATH_GTK_2_0],[
-    AM_PATH_GTK_2_0([2.0.0], [gtk=2], [])
-    ],[AC_WARNING([generating configure script without GTK 2 autodetection])])
+    ifdef([AM_PATH_GTK_2_0],[AM_PATH_GTK_2_0([2.0.0], [gtk=2], [])],
+    [AC_WARNING([generating configure script without GTK 2 autodetection])])
     ;;
 esac
 
 case "$gtk_version_desired:$gtk" in
   1:none | any:none)
-    ifdef([AM_PATH_GTK],[
-    AM_PATH_GTK([1.2.0], [gtk=1], [])
-    ],[
+    ifdef([AM_PATH_GTK],[AM_PATH_GTK([1.2.0], [gtk=1], [])],[
     # manual check for gtk1
     AC_PATH_PROG(GTK1_CONFIG, gtk-config, absent)
     if test "$GTK1_CONFIG" != "absent"; then
-      GTK_CFLAGS=`"$GTK1_CONFIG" --cflags`
+      GTK_CFLAGS="`"$GTK1_CONFIG" --cflags`"
       GTK_LIBS=`"$GTK1_CONFIG" --libs`
+      AC_SUBST(GTK_CFLAGS)
+      AC_SUBST(GTK_LIBS)
       gtk=1
     fi
     ])
     ;;
+esac
+
+case "$gtk" in
+  1)
+    # Add some manual #defines to make the GTK 1 headers work when
+    # compiling in C99 mode. Left to themselves, they'll expect the
+    # old-style pre-C99 GNU semantics of 'inline' and 'extern inline',
+    # with the effect that they'll end up defining out-of-line
+    # versions of the inlined functions in more than one translation
+    # unit and cause a link failure. Override them to 'static inline',
+    # which is safe.
+    GTK_CFLAGS="$GTK_CFLAGS -DG_INLINE_FUNC='static inline' -DG_CAN_INLINE=1"
 esac
 
 AM_CONDITIONAL(HAVE_GTK, [test "$gtk" != "none"])
@@ -157,8 +169,9 @@ AC_CHECK_LIB(X11, XOpenDisplay,
              [GTK_LIBS="-lX11 $GTK_LIBS"
               AC_DEFINE([HAVE_LIBX11],[],[Define if libX11.a is available])])
 
-AC_CHECK_FUNCS([getaddrinfo posix_openpt ptsname setresuid strsignal updwtmpx])
+AC_CHECK_FUNCS([getaddrinfo posix_openpt ptsname setresuid strsignal updwtmpx fstatat dirfd futimes setpwent endpwent])
 AC_CHECK_DECLS([CLOCK_MONOTONIC], [], [], [[#include <time.h>]])
+AC_CHECK_HEADERS([sys/auxv.h asm/hwcap.h glob.h])
 AC_SEARCH_LIBS([clock_gettime], [rt], [AC_DEFINE([HAVE_CLOCK_GETTIME],[],[Define if clock_gettime() is available])])
 
 AC_CACHE_CHECK([for SO_PEERCRED and dependencies], [x_cv_linux_so_peercred], [
@@ -185,7 +198,7 @@ AS_IF([test AS_VAR_GET(x_cv_linux_so_peercred) = yes],
 
 if test "x$GCC" = "xyes"; then
   :
-  AC_SUBST(WARNINGOPTS, ['-Wall -Werror'])
+  AC_SUBST(WARNINGOPTS, ['-Wall -Werror -Wpointer-arith -Wvla'])
 else
   :
   AC_SUBST(WARNINGOPTS, [])
