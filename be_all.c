@@ -14,6 +14,7 @@
  * have tiny little source modules containing nothing but
  * declarations of appname, for as long as I can...
  */
+/* WALLIX: appname */
 const char *const appname = "WAB PuTTY";
 
 #ifdef TELNET_DEFAULT

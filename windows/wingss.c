@@ -105,6 +105,7 @@ struct ssh_gss_liblist *ssh_gss_setup(Conf *conf)
     if (!kernel32_module) {
         kernel32_module = load_system32_dll("kernel32.dll");
     }
+/* WALLIX: 1920 */
 #if defined _MSC_VER && _MSC_VER < 1920
     /* Omit the type-check because older MSVCs don't have this function */
     GET_WINDOWS_FUNCTION_NO_TYPECHECK(kernel32_module, AddDllDirectory);

@@ -471,6 +471,7 @@ static void close_session(void *ignored_context)
     }
 }
 
+/* WALLIX: Remove quotes from path */
 static const char *UnquoteFile(const char *path) {
 	if (path == NULL || path[0] != '"') {
 		return strdup(path);
@@ -482,6 +483,8 @@ static const char *UnquoteFile(const char *path) {
 	}
 	return p;
 }
+
+/* WALLIX: Check if file exists */
 static boolean FileExists(const char *path) {
 	char * p = UnquoteFile(path);
 	boolean exists = INVALID_FILE_ATTRIBUTES != GetFileAttributes(p);
@@ -508,7 +511,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     /* Set Explicit App User Model Id so that jump lists don't cause
        PuTTY to hang on to removable media. */
-
     set_explicit_app_user_model_id();
 
     /* Ensure a Maximize setting in Explorer doesn't maximise the
@@ -584,7 +586,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             p += 2;
         }
 
+	/* WALLIX: Add file exist check */
 	if (*p == '@' || (*p != '\0' && FileExists(p))) {
+
             /*
              * An initial @ means that the whole of the rest of the
              * command line should be treated as the name of a saved
@@ -592,12 +596,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
              * very convenient means of automated saved-session
              * launching, via IDM_SAVEDSESS or Windows 7 jump lists.
              */
+		/* WALLIX: Remove quotes from path*/
 		char *const filename = UnquoteFile(*p == '@' ? p + 1 : p);
 		int i = strlen(filename);
 		while (i > 0 && isspace(filename[i - 1]))
+
 		i--;
+
+		/* WALLIX: Remove quotes from path*/
 		filename[i] = '\0';
 		do_defaults(filename, conf);
+
 	    if (!conf_launchable(conf) && !do_config()) {
 		cleanup_exit(0);
 	    }

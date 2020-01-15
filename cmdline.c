@@ -44,16 +44,21 @@ struct cmdline_saved_param_set {
  */
 static struct cmdline_saved_param_set saves[NPRIORITIES];
 
+/* WALLIX: Use of 'const' for function parameters */
 static void cmdline_save_param(const char *p, const char *value, int pri)
 {
     sgrowarray(saves[pri].params, saves[pri].savesize, saves[pri].nsaved);
-    saves[pri].params[saves[pri].nsaved].p = dupstr(p);
-    saves[pri].params[saves[pri].nsaved].value = dupstr(value);
+
+	/* WALLIX: Duplicate strings */
+	saves[pri].params[saves[pri].nsaved].p = dupstr(p);
+	saves[pri].params[saves[pri].nsaved].value = dupstr(value);
+
     saves[pri].nsaved++;
 }
 
 static char *cmdline_password = NULL;
 
+/* WALLIX : set cmdline password */
 void set_cmdline_password(const char *password) {
 	cmdline_password = password;
 }

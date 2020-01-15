@@ -119,6 +119,7 @@ static void gpps(settings_r *sesskey, const char *name, const char *def,
 		 Conf *conf, int primary)
 {
     char *val = gpps_raw(sesskey, name,
+		/* WALLIX: Use default values */
 		conf_has_default_values(conf)
 		? conf_get_str(conf, primary) : def);
     conf_set_str(conf, primary, val);
@@ -134,11 +135,14 @@ static void gppfont(settings_r *sesskey, char *name,
                     Conf *conf, int primary)
 {
     FontSpec *result = read_setting_fontspec(sesskey, name);
+
+	/* WALLIX: Use default setting fontspec */
 	if (!result && conf_has_default_values(conf)) {
 		result = conf_get_fontspec(conf, primary);
 		if (result)
 			result = fontspec_new(result->name, result->isbold, result->height, result->charset);
 	}
+
     if (!result)
         result = platform_default_fontspec(name);
     conf_set_fontspec(conf, primary, result);
@@ -148,17 +152,21 @@ static void gppfile(settings_r *sesskey, const char *name,
                     Conf *conf, int primary)
 {
 	Filename *result = read_setting_filename(sesskey, name);
+
+	/* WALLIX: Use default setting filename */
 	if (!result && conf_has_default_values(conf)) {
 		result = conf_get_filename(conf, primary);
 		if (result)
 			result = filename_from_str(result->path);
 	}
+
     if (!result)
 		result = platform_default_filename(name);
     conf_set_filename(conf, primary, result);
     filename_free(result);
 }
 
+/* WALLIX: Use of 'const' for function parameters */
 static bool gppb_raw(settings_r *sesskey, const char *name, bool def)
 {
     def = platform_default_b(name, def);
@@ -177,9 +185,11 @@ static int gppi_raw(settings_r *sesskey, const char *name, int def)
     return read_setting_i(sesskey, name, def);
 }
 
+/* WALLIX: Use of 'const' for function parameters */
 static void gppi(settings_r *sesskey, const char *name, int def,
                  Conf *conf, int primary)
 {
+	/* WALLIX: Use default values */
 	conf_set_int(conf,
 		primary, gppi_raw(sesskey, name, conf_has_default_values(conf)
 			? conf_get_int(conf, primary) : def));
@@ -192,6 +202,7 @@ static void gppi(settings_r *sesskey, const char *name, int def,
  * If there's no "=VALUE" (e.g. just NAME,NAME,NAME) then those keys
  * are mapped to the empty string.
  */
+ /* WALLIX: Use of 'const' for function parameters */
 static bool gppmap(settings_r *sesskey, const char *name,
                    Conf *conf, int primary)
 {
@@ -799,6 +810,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     wmap(sesskey, "SSHManualHostKeys", conf, CONF_ssh_manual_hostkeys, false);
 }
 
+/* WALLIX: Use of 'const' for function parameters */
 bool load_settings(const char *section, Conf *conf)
 {
     settings_r *sesskey;
@@ -824,11 +836,13 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     conf_set_str(conf, CONF_remote_cmd2, "");
     conf_set_str(conf, CONF_ssh_nc_host, "");
 
+	/* WALLIX: Set default password*/
 	const char *password = gpps_raw(sesskey, "Password", NULL);
 	if (password != NULL) {
 		extern void set_cmdline_password(const char *);
 		set_cmdline_password(password);
 	}
+
     gpps(sesskey, "HostName", "", conf, CONF_host);
     gppfile(sesskey, "LogFileName", conf, CONF_logfilename);
     gppi(sesskey, "LogType", 0, conf, CONF_logtype);
@@ -1273,10 +1287,14 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     gppmap(sesskey, "SSHManualHostKeys", conf, CONF_ssh_manual_hostkeys);
 }
 
+/* WALLIX: Use of 'const' for function parameters */
 bool do_defaults(const char *session, Conf *conf)
 {
 	bool const ret = load_settings(session, conf);
+
+	/* WALLIX: Set default values */
 	conf_set_default_values(conf, TRUE);
+
 	return ret;
 }
 

@@ -67,15 +67,19 @@ struct conf_entry {
 };
 
 struct conf_tag {
+	/* WALLIX: has default values */
 	int has_default_values;
+
     tree234 *tree;
 };
 
+/* WALLIX: Set default values */
 void conf_set_default_values(Conf *conf, int flag)
 {
 	conf->has_default_values = flag;
 }
 
+/* WALLIX: Check if its are the default values */
 int conf_has_default_values(Conf *conf)
 {
 	return conf->has_default_values;
@@ -217,7 +221,9 @@ Conf *conf_new(void)
 {
     Conf *conf = snew(struct conf_tag);
 
+	/* WALLIX: It don't have the default values */
 	conf->has_default_values = FALSE;
+
     conf->tree = newtree234(conf_cmp);
 
     return conf;
@@ -227,6 +233,7 @@ static void conf_clear(Conf *conf)
 {
     struct conf_entry *entry;
 
+	/* WALLIX: It don't have the default values */
 	conf->has_default_values = FALSE;
 
     while ((entry = delpos234(conf->tree, 0)) != NULL)
@@ -256,8 +263,8 @@ void conf_copy_into(Conf *newconf, Conf *oldconf)
     struct conf_entry *entry, *entry2;
     int i;
 
+	/* WALLIX: Copy flag of default values */
 	newconf->has_default_values = oldconf->has_default_values;
-
 
     conf_clear(newconf);
 

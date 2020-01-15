@@ -1495,8 +1495,12 @@ enum config_primary_key { CONFIG_OPTIONS(CONF_ENUM_DEF) N_CONFIG_OPTIONS };
 
 /* Functions handling configuration structures. */
 Conf *conf_new(void);		       /* create an empty configuration */
+
+/* WALLIX: Set default values */
 void conf_set_default_values(Conf *conf, int flag);
+/* WALLIX: Check if its are the default values */
 int conf_has_default_values(Conf *conf);
+
 void conf_free(Conf *conf);
 Conf *conf_copy(Conf *oldconf);
 void conf_copy_into(Conf *dest, Conf *src);

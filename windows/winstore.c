@@ -374,6 +374,7 @@ settings_w *open_settings_w(const char *sessionname, char **errmsg)
 		sessionname = "Default Settings";
 	}
 
+	/* WALLIX: */
 	bool registry = false;
 
 	/* JK: if sessionname contains [registry] -> cut it off */
@@ -381,10 +382,12 @@ settings_w *open_settings_w(const char *sessionname, char **errmsg)
 		p = strrchr(sessionname, '[');
 		*(p-1) = '\0';
 
+		/* WALLIX: */
 		registry = true;
 	}
 
 	sb = strbuf_new();
+	/* WALLIX: Additional parameter */
 	escape_registry_key(sessionname, sb, registry);
 
 	sp = snew( struct setPack );
@@ -506,6 +509,7 @@ void close_settings_w(settings_w *handle)
 
 	while (st1) {
 		strbuf* sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(st1->key, sb, true);
 		p = strbuf_to_str(sb);
 		writeok = writeok && WriteFile( hFile, p, strlen(p), &written, NULL);
@@ -513,6 +517,7 @@ void close_settings_w(settings_w *handle)
 		sfree(p);
 
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(st1->value, sb, true);
 		p = strbuf_to_str(sb);
 		writeok = writeok && WriteFile( hFile, p, strlen(p), &written, NULL);
@@ -573,6 +578,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 	char *fileCont;
 	DWORD fileSize;
 	DWORD bytesRead;
+	/* WALLIX: Initialization */
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 	struct setPack* sp;
 	struct setItem *st1, *st2;
@@ -597,11 +603,13 @@ settings_r *open_settings_r_inner(const char *sessionname)
 		*(p-1) = '\0';
 
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(ses, sb, true);	/* do not free sb to be used at the end of function */
 		sfree(ses);
 
 		sp->fromFile = 0;
 	}
+	/* WALLIX: Store file handle */
 	else if (INVALID_HANDLE_VALUE != (hFile = CreateFile(sessionname, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL))) {
 		/* JK: 6.3.2009 - 0.3.5 - for running putty for session files */
 		p = snewn(2 * strlen(sessionname) + 1, char);
@@ -610,6 +618,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 	}
 	else {
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(sessionname, sb, false);
 
 		/* JK: secure pack for filename */
@@ -625,6 +634,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 	/* 8.1.2007 - 0.1.6 try to load them from file if exists - nasty code duplication */
 	if (!strcmp(sessionname, "Default Settings")) {
 		GetCurrentDirectory( (MAX_PATH*2), oldpath);
+		/* WALLIX: Close file handle */
 		if (INVALID_HANDLE_VALUE != hFile) {
 			CloseHandle(hFile);
 			hFile = INVALID_HANDLE_VALUE;
@@ -632,16 +642,19 @@ settings_r *open_settings_r_inner(const char *sessionname)
 		if (SetCurrentDirectory(sesspath)) {
 			hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
 		}
+		/* WALLIX: Remove else */		
 		SetCurrentDirectory(oldpath);
 		
 		if (hFile == INVALID_HANDLE_VALUE) {
 			sb = strbuf_new();
+			/* WALLIX: Additional parameter */
 			escape_registry_key(sessionname, sb, false);
 			sp->fromFile = 0;
 		}
 		else {
 			sp->fromFile = 1;
 			CloseHandle(hFile);
+			/* WALLIX: Initialization */
 			hFile = INVALID_HANDLE_VALUE;
 		}
 	}
@@ -652,6 +665,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 		if (SetCurrentDirectory(sesspath)) {
 			hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
 		}
+		/* WALLIX: Remove else */
 		SetCurrentDirectory(oldpath);
 		
 		if (hFile == INVALID_HANDLE_VALUE) {
@@ -699,6 +713,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 			++p;
 			st1->value = p;
 
+			/* WALLIX: */
 			while (++p) {
 				if (*p == '\n' || *p == '\r' || *p == 0) {
 					if (p[-1] == '\\') {
@@ -710,7 +725,6 @@ settings_r *open_settings_r_inner(const char *sessionname)
 					break;
 				}
 			}
-
 			/* for "\\\n" - human readable files */
 			do {
 				p++;
@@ -725,6 +739,7 @@ settings_r *open_settings_r_inner(const char *sessionname)
 			st1 = st2;
 		}
 		CloseHandle(hFile);
+		/* WALLIX: Initialization */
 		hFile = INVALID_HANDLE_VALUE;
 	}
 	else {
@@ -764,6 +779,7 @@ char *read_setting_s(settings_r *handle, const char *key)
 	if (handle->sp->fromFile) {
 		
 		strbuf* sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(key, sb, true);
 		p = strbuf_to_str(sb);
 
@@ -957,6 +973,7 @@ void del_settings(const char *sessionname)
 		if (RegOpenKey(HKEY_CURRENT_USER, puttystr, &subkey1) != ERROR_SUCCESS)	return;
 
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(sessionname, sb, true);
 		RegDeleteKey(subkey1, sb->s);
 		strbuf_free(sb);
@@ -973,12 +990,14 @@ void del_settings(const char *sessionname)
 		p2ss = snewn(3 * strlen(pss) + 1, char);
 		
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(p, sb, false);
 		strcpy(p, sb->s);
 		strbuf_free(sb);
 		packstr(p, p2);
 
 		sb = strbuf_new();
+		/* WALLIX: Additional parameter */
 		escape_registry_key(pss, sb, false);
 		strcpy(pss, sb->s);
 		strbuf_free(sb);
@@ -1143,6 +1162,7 @@ static void hostkey_regname(strbuf* sb, const char *hostname,
 			    int port, const char *keytype)
 {
 	strbuf_catf(sb, "%s@%d:", keytype, port);
+	/* WALLIX: Additional parameter */
 	escape_registry_key(hostname, sb, true);
 }
 
