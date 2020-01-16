@@ -20,9 +20,9 @@ bool agent_exists(void)
     HWND hwnd;
     hwnd = FindWindow("Pageant", "Pageant");
     if (!hwnd)
-	return false;
+        return false;
     else
-	return true;
+        return true;
 }
 
 void agent_cancel_query(agent_pending_query *q)
@@ -52,7 +52,7 @@ agent_pending_query *agent_query(
 
     hwnd = FindWindow("Pageant", "Pageant");
     if (!hwnd)
-	return NULL;		       /* *out == NULL, so failure */
+        return NULL;                   /* *out == NULL, so failure */
     mapname = dupprintf("PageantRequest%08x", (unsigned)GetCurrentThreadId());
 
     psa = NULL;
@@ -90,10 +90,10 @@ agent_pending_query *agent_query(
 #endif /* NO_SECURITY */
 
     filemap = CreateFileMapping(INVALID_HANDLE_VALUE, psa, PAGE_READWRITE,
-				0, AGENT_MAX_MSGLEN, mapname);
+                                0, AGENT_MAX_MSGLEN, mapname);
     if (filemap == NULL || filemap == INVALID_HANDLE_VALUE) {
         sfree(mapname);
-	return NULL;		       /* *out == NULL, so failure */
+        return NULL;                   /* *out == NULL, so failure */
     }
     p = MapViewOfFile(filemap, FILE_MAP_WRITE, 0, 0, 0);
     strbuf_finalise_agent_query(query);
@@ -109,13 +109,24 @@ agent_pending_query *agent_query(
      */
     id = SendMessage(hwnd, WM_COPYDATA, (WPARAM) NULL, (LPARAM) &cds);
     if (id > 0) {
-	retlen = 4 + GET_32BIT_MSB_FIRST(p);
-	ret = snewn(retlen, unsigned char);
-	if (ret) {
-	    memcpy(ret, p, retlen);
-	    *out = ret;
-	    *outlen = retlen;
-	}
+        uint32_t length_field = GET_32BIT_MSB_FIRST(p);
+        if (length_field > 0 && length_field <= AGENT_MAX_MSGLEN - 4) {
+            retlen = length_field + 4;
+            ret = snewn(retlen, unsigned char);
+            memcpy(ret, p, retlen);
+            *out = ret;
+            *outlen = retlen;
+        } else {
+            /*
+             * If we get here, we received an out-of-range length
+             * field, either without space for a message type code or
+             * overflowing the FileMapping.
+             *
+             * Treat this as if Pageant didn't answer at all - which
+             * actually means we do nothing, and just don't fill in
+             * out and outlen.
+             */
+        }
     }
     UnmapViewOfFile(p);
     CloseHandle(filemap);

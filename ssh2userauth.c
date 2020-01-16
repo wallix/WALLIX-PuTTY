@@ -57,8 +57,9 @@ struct ssh2_userauth_state {
     strbuf *last_methods_string;
     bool kbd_inter_refused;
     prompts_t *cur_prompt;
-    int num_prompts;
-    char *username;
+    uint32_t num_prompts;
+    const char *username;
+    char *locally_allocated_username;
     char *password;
     bool got_username;
     strbuf *publickey_blob;
@@ -88,7 +89,7 @@ struct ssh2_userauth_state {
     PacketProtocolLayer ppl;
 };
 
-static void ssh2_userauth_free(PacketProtocolLayer *); 
+static void ssh2_userauth_free(PacketProtocolLayer *);
 static void ssh2_userauth_process_queue(PacketProtocolLayer *);
 static bool ssh2_userauth_get_specials(
     PacketProtocolLayer *ppl, add_special_fn_t add_special, void *ctx);
@@ -176,8 +177,13 @@ static void ssh2_userauth_free(PacketProtocolLayer *ppl)
         agent_cancel_query(s->auth_agent_query);
     filename_free(s->keyfile);
     sfree(s->default_username);
+    sfree(s->locally_allocated_username);
     sfree(s->hostname);
     sfree(s->fullhostname);
+    sfree(s->publickey_comment);
+    sfree(s->publickey_algorithm);
+    if (s->publickey_blob)
+        strbuf_free(s->publickey_blob);
     strbuf_free(s->last_methods_string);
     if (s->banner_scc)
         stripctrl_free(s->banner_scc);
@@ -366,16 +372,16 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
      * beginning to try another username, if this is configured on.
      * (If they specify a username in the config, they are never
      * asked, even if they do give a wrong password.)
-     * 
+     *
      * I think this best serves the needs of
-     * 
+     *
      *  - the people who have no configuration, no keys, and just
      *    want to try repeated (username,password) pairs until they
      *    type both correctly
-     * 
+     *
      *  - people who have keys and configuration but occasionally
      *    need to fall back to passwords
-     * 
+     *
      *  - people with a key held in Pageant, who might not have
      *    logged in to a particular machine before; so they want to
      *    type a username, and then _either_ their key will be
@@ -388,7 +394,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
         /*
          * Get a username.
          */
-        if (s->got_username && s->change_username) {
+        if (s->got_username && !s->change_username) {
             /*
              * We got a username last time round this loop, and
              * with change_username turned off we don't try to get
@@ -399,7 +405,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
             s->cur_prompt->to_server = true;
             s->cur_prompt->from_server = false;
             s->cur_prompt->name = dupstr("SSH login name");
-            add_prompt(s->cur_prompt, dupstr("login as: "), true); 
+            add_prompt(s->cur_prompt, dupstr("login as: "), true);
             s->userpass_ret = seat_get_userpass_input(
                 s->ppl.seat, s->cur_prompt, NULL);
             while (1) {
@@ -424,7 +430,9 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 ssh_user_close(s->ppl.ssh, "No username provided");
                 return;
             }
-            s->username = dupstr(s->cur_prompt->prompts[0]->result);
+            sfree(s->locally_allocated_username); /* for change_username */
+            s->username = s->locally_allocated_username =
+                dupstr(s->cur_prompt->prompts[0]->result);
             free_prompts(s->cur_prompt);
         } else {
             if ((flags & FLAG_VERBOSE) || (flags & FLAG_INTERACTIVE))
@@ -1191,7 +1199,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 put_stringz(s->pktout, "");     /* lang */
                 put_stringz(s->pktout, "");     /* submethods */
                 pq_push(s->ppl.out_pq, s->pktout);
-                
+
                 ppl_logevent("Attempting keyboard-interactive authentication");
 
                 if (!s->ki_scc_initialised) {
@@ -1223,7 +1231,6 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     ptrlen name, inst;
                     strbuf *sb;
-                    int i;
 
                     /*
                      * We've got a fresh USERAUTH_INFO_REQUEST.
@@ -1240,9 +1247,16 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                      * Get any prompt(s) from the packet.
                      */
                     s->num_prompts = get_uint32(pktin);
-                    for (i = 0; i < s->num_prompts; i++) {
+                    for (uint32_t i = 0; i < s->num_prompts; i++) {
                         ptrlen prompt = get_string(pktin);
                         bool echo = get_bool(pktin);
+
+                        if (get_err(pktin)) {
+                            ssh_proto_error(
+                                s->ppl.ssh, "Server sent truncated "
+                                "SSH_MSG_USERAUTH_INFO_REQUEST packet");
+                            return;
+                        }
 
                         sb = strbuf_new();
                         if (!prompt.len) {
@@ -1288,10 +1302,14 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     sb = strbuf_new();
                     if (name.len) {
-                        stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
-                        put_datapl(s->ki_scc, name);
-                        stripctrl_retarget(s->ki_scc, NULL);
-
+                        if (s->ki_scc) {
+                            stripctrl_retarget(s->ki_scc,
+                                               BinarySink_UPCAST(sb));
+                            put_datapl(s->ki_scc, name);
+                            stripctrl_retarget(s->ki_scc, NULL);
+                        } else {
+                            put_datapl(sb, name);
+                        }
                         s->cur_prompt->name_reqd = true;
                     } else {
                         put_datapl(sb, PTRLEN_LITERAL(
@@ -1302,14 +1320,20 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     sb = strbuf_new();
                     if (inst.len) {
-                        stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
-                        put_datapl(s->ki_scc, inst);
-                        stripctrl_retarget(s->ki_scc, NULL);
-
+                        if (s->ki_scc) {
+                            stripctrl_retarget(s->ki_scc,
+                                               BinarySink_UPCAST(sb));
+                            put_datapl(s->ki_scc, inst);
+                            stripctrl_retarget(s->ki_scc, NULL);
+                        } else {
+                            put_datapl(sb, inst);
+                        }
                         s->cur_prompt->instr_reqd = true;
                     } else {
                         s->cur_prompt->instr_reqd = false;
                     }
+                    if (sb->len)
+                        s->cur_prompt->instruction = strbuf_to_str(sb);
 
                     /*
                      * Our prompts_t is fully constructed now. Get the
@@ -1349,7 +1373,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     s->pktout = ssh_bpp_new_pktout(
                         s->ppl.bpp, SSH2_MSG_USERAUTH_INFO_RESPONSE);
                     put_uint32(s->pktout, s->num_prompts);
-                    for (i=0; i < s->num_prompts; i++) {
+                    for (uint32_t i = 0; i < s->num_prompts; i++) {
                         put_stringz(s->pktout,
                                     s->cur_prompt->prompts[i]->result);
                     }
@@ -1468,7 +1492,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                 while (pktin->type == SSH2_MSG_USERAUTH_PASSWD_CHANGEREQ) {
 
-                    /* 
+                    /*
                      * We're being asked for a new password
                      * (perhaps not for the first time).
                      * Loop until the server accepts it.
@@ -1476,7 +1500,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     bool got_new = false; /* not live over crReturn */
                     ptrlen prompt;  /* not live over crReturn */
-                    
+
                     {
                         const char *msg;
                         if (changereq_first_time)
@@ -1596,7 +1620,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     s->pktout->minlen = 256;
                     pq_push(s->ppl.out_pq, s->pktout);
                     ppl_logevent("Sent new password");
-                    
+
                     /*
                      * Now see what the server has to say about it.
                      * (If it's CHANGEREQ again, it's not happy with the
@@ -1728,42 +1752,42 @@ static void ssh2_userauth_add_sigblob(
     if ((s->ppl.remote_bugs & BUG_SSH2_RSA_PADDING) &&
         ptrlen_eq_string(get_string(pk), "ssh-rsa") &&
         ptrlen_eq_string(get_string(sig), "ssh-rsa")) {
-	ptrlen mod_mp, sig_mp;
+        ptrlen mod_mp, sig_mp;
         size_t sig_prefix_len;
 
-	/*
-	 * Find the modulus and signature integers.
-	 */
+        /*
+         * Find the modulus and signature integers.
+         */
         get_string(pk);                /* skip over exponent */
         mod_mp = get_string(pk);       /* remember modulus */
         sig_prefix_len = sig->pos;
-	sig_mp = get_string(sig);
+        sig_mp = get_string(sig);
         if (get_err(pk) || get_err(sig))
             goto give_up;
 
         /*
          * Find the byte length of the modulus, not counting leading
-	 * zeroes.
+         * zeroes.
          */
-	while (mod_mp.len > 0 && *(const char *)mod_mp.ptr == 0) {
+        while (mod_mp.len > 0 && *(const char *)mod_mp.ptr == 0) {
             mod_mp.len--;
             mod_mp.ptr = (const char *)mod_mp.ptr + 1;
         }
 
-	/* debug("modulus length is %d\n", len); */
-	/* debug("signature length is %d\n", siglen); */
+        /* debug("modulus length is %d\n", len); */
+        /* debug("signature length is %d\n", siglen); */
 
-	if (mod_mp.len != sig_mp.len) {
+        if (mod_mp.len != sig_mp.len) {
             strbuf *substr = strbuf_new();
-	    put_data(substr, sigblob.ptr, sig_prefix_len);
-	    put_uint32(substr, mod_mp.len);
-	    put_padding(substr, mod_mp.len - sig_mp.len, 0);
-	    put_datapl(substr, sig_mp);
+            put_data(substr, sigblob.ptr, sig_prefix_len);
+            put_uint32(substr, mod_mp.len);
+            put_padding(substr, mod_mp.len - sig_mp.len, 0);
+            put_datapl(substr, sig_mp);
             put_stringsb(pkt, substr);
-	    return;
-	}
+            return;
+        }
 
-	/* Otherwise fall through and do it the easy way. We also come
+        /* Otherwise fall through and do it the easy way. We also come
          * here as a fallback if we discover above that the key blob
          * is misformatted in some way. */
       give_up:;
