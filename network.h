@@ -217,6 +217,18 @@ char *get_hostname(void);
  */
 Socket new_error_socket(const char *errmsg, Plug plug);
 
+/*
+ * Map ip to loopback - used by WALLIX Bastion RAWTCP
+ */
+struct iploop {
+    wchar_t* exe;
+    void* event;
+    void* child;
+    void* thread;
+};
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n);
+int unmap_ip_from_loopback(struct iploop* ipl);
+
 /* ----------------------------------------------------------------------
  * Functions defined outside the network code, which have to be
  * declared in this header file rather than the main putty.h because

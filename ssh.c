@@ -991,6 +991,9 @@ struct ssh_tag {
      * agent-forwarding channels live in their channel structure.)
      */
     agent_pending_query *auth_agent_query;
+
+    /* Handle for signaling IP Loopback manager that it can umap the addresses. */
+    struct iploop ipl;
 };
 
 static const char *ssh_pkt_type(Ssh ssh, int type)
@@ -3502,6 +3505,10 @@ static int ssh_do_close(Ssh ssh, int notify_exit)
     if (ssh->connshare) {
         sharestate_free(ssh->connshare);
         ssh->connshare = NULL;
+    }
+
+    if (conf_get_int(ssh->conf, CONF_lport_loopback)) {
+        unmap_ip_from_loopback(&ssh->ipl);
     }
 
     return ret;
@@ -11316,6 +11323,60 @@ static const char *ssh_init(void *frontend_handle, void **backend_handle,
 
     random_ref(); /* do this now - may be needed by sharing setup code */
 
+    /* Map IP to loopback if SSH tunnel flag set. */
+	if (conf_get_int(ssh->conf, CONF_lport_loopback)) {
+        int nbAddr = 0;
+		char* key, * val, type;
+        char *loopback_addr[16];
+		for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
+			val != NULL;
+			val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
+			char* kp, * kp2, * vp, * vp2;
+			char address_family, type;
+			int sport, dport, sserv, dserv;
+			char* sports, * dports, * saddr, * host;
+
+			kp = key;
+
+			address_family = 'A';
+			type = 'L';
+			if (*kp == 'A' || *kp == '4' || *kp == '6')
+				address_family = *kp++;
+			if (*kp == 'L' || *kp == 'R')
+				type = *kp++;
+
+			if ((kp2 = host_strchr(kp, ':')) != NULL) {
+				/*
+				 * There's a colon in the middle of the source port
+				 * string, which means that the part before it is
+				 * actually a source address.
+				 */
+				char* saddr_tmp = dupprintf("%.*s", (int)(kp2 - kp), kp);
+				saddr = host_strduptrim(saddr_tmp);
+				sfree(saddr_tmp);
+			}
+			else {
+				saddr = NULL;
+			}
+
+			if (type == 'L') {
+				char* errmsg;
+                ULONG nteContext = 0;
+                if (nbAddr == 16) {
+                    bomb_out(ssh, "Too many IP addresses to map (>16)");
+                }
+                if (nbAddr < 16) {
+                    char* result;
+                    loopback_addr[nbAddr++] = saddr;
+                }
+			}
+		}
+
+        if (nbAddr > 0 && (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr)) != 0) {
+            bomb_out(ssh, "Cannot map IP(s) to loopback");
+        }
+    }
+
     p = connect_to_host(ssh, host, port, realhost, nodelay, keepalive);
     if (p != NULL) {
         random_unref();
@@ -11331,6 +11392,10 @@ static void ssh_free(void *handle)
     struct ssh_channel *c;
     struct ssh_rportfwd *pf;
     struct X11FakeAuth *auth;
+
+    if (conf_get_int(ssh->conf, CONF_lport_loopback)) {
+        unmap_ip_from_loopback(&ssh->ipl);
+    }
 
     if (ssh->v1_cipher_ctx)
 	ssh->cipher->free_context(ssh->v1_cipher_ctx);
