@@ -1161,109 +1161,126 @@ static void portfwd_handler(union control *ctrl, void *dlg,
     } else if (event == EVENT_ACTION) {
 	if (ctrl == pfd->addbutton) {
 	    const char *family, *type;
-            char *src, *key, *val;
+        char *src, *key, *val;
 	    int whichbutton;
 
 #ifndef NO_IPV6
-	    whichbutton = dlg_radiobutton_get(pfd->addressfamily, dlg);
-	    if (whichbutton == 1)
-		family = "4";
-	    else if (whichbutton == 2)
-		family = "6";
-	    else
+		whichbutton = dlg_radiobutton_get(pfd->addressfamily, dlg);
+		if (whichbutton == 1)
+			family = "4";
+		else if (whichbutton == 2)
+			family = "6";
+		else
 #endif
-		family = "";
+			family = "";
 
-	    whichbutton = dlg_radiobutton_get(pfd->direction, dlg);
-	    if (whichbutton == 0)
-		type = "L";
-	    else if (whichbutton == 1)
-		type = "R";
-	    else
-		type = "D";
+		whichbutton = dlg_radiobutton_get(pfd->direction, dlg);
+		if (whichbutton == 0)
+			type = "L";
+		else if (whichbutton == 1)
+			type = "R";
+		else
+			type = "D";
 
-	    src = dlg_editbox_get(pfd->sourcebox, dlg);
-	    if (!*src) {
-		dlg_error_msg(dlg, "You need to specify a source port number");
+		int map_loopback = conf_get_int(conf, CONF_lport_loopback);
+		src = dlg_editbox_get(pfd->sourcebox, dlg);
+		if (map_loopback) {
+			if (!*src || !host_strchr(src, ':')) {
+				dlg_error_msg(dlg,
+					"You need to specify a source address\n"
+					"in the form \"host.name:port\"");
+				sfree(src);
+				return;
+			}
+		}
+		else {
+			char* endstr = "*";
+			if (!*src || strtoul(src, &endstr, 10) == 0 || *endstr != '\0') {
+				dlg_error_msg(dlg, "You need to specify a source port number");
+				sfree(src);
+				return;
+			}
+		}
+		if (*type != 'D') {
+			val = dlg_editbox_get(pfd->destbox, dlg);
+			if (!*val || !host_strchr(val, ':')) {
+				dlg_error_msg(dlg,
+					"You need to specify a destination address\n"
+					"in the form \"host.name:port\"");
+				sfree(src);
+				sfree(val);
+				return;
+			}
+		}
+		else if (*type != 'T'){
+			type = "L";
+			val = dupstr("D");     /* special case */
+		}
+
+		key = dupcat(family, type, src, NULL);
 		sfree(src);
-		return;
-	    }
-	    if (*type != 'D') {
-		val = dlg_editbox_get(pfd->destbox, dlg);
-		if (!*val || !host_strchr(val, ':')) {
-		    dlg_error_msg(dlg,
-				  "You need to specify a destination address\n"
-				  "in the form \"host.name:port\"");
-		    sfree(src);
-		    sfree(val);
-		    return;
+
+		if (conf_get_str_str_opt(conf, CONF_portfwd, key)) {
+			dlg_error_msg(dlg, "Specified forwarding already exists");
 		}
-	    } else {
-                type = "L";
-		val = dupstr("D");     /* special case */
-            }
+		else {
+			conf_set_str_str(conf, CONF_portfwd, key, val);
+		}
 
-	    key = dupcat(family, type, src, NULL);
-	    sfree(src);
+		sfree(key);
+		sfree(val);
+		dlg_refresh(pfd->listbox, dlg);
+	}
+	else if (ctrl == pfd->rembutton) {
+		int i = dlg_listbox_index(pfd->listbox, dlg);
+		if (i < 0) {
+			dlg_beep(dlg);
+		}
+		else {
+			char* key, * p;
+			const char* val;
 
-	    if (conf_get_str_str_opt(conf, CONF_portfwd, key)) {
-		dlg_error_msg(dlg, "Specified forwarding already exists");
-	    } else {
-		conf_set_str_str(conf, CONF_portfwd, key, val);
-	    }
-
-	    sfree(key);
-	    sfree(val);
-	    dlg_refresh(pfd->listbox, dlg);
-	} else if (ctrl == pfd->rembutton) {
-	    int i = dlg_listbox_index(pfd->listbox, dlg);
-	    if (i < 0) {
-		dlg_beep(dlg);
-	    } else {
-		char *key, *p;
-                const char *val;
-
-		key = conf_get_str_nthstrkey(conf, CONF_portfwd, i);
-		if (key) {
-		    static const char *const afs = "A46";
-		    static const char *const dirs = "LRD";
-		    char *afp;
-		    int dir;
+			key = conf_get_str_nthstrkey(conf, CONF_portfwd, i);
+			if (key) {
+				static const char* const afs = "A46";
+				static const char* const dirs = "LRD";
+				char* afp;
+				int dir;
 #ifndef NO_IPV6
-		    int idx;
+				int idx;
 #endif
 
-		    /* Populate controls with the entry we're about to delete
-		     * for ease of editing */
-		    p = key;
+				/* Populate controls with the entry we're about to delete
+				 * for ease of editing */
+				p = key;
 
-		    afp = strchr(afs, *p);
+				afp = strchr(afs, *p);
 #ifndef NO_IPV6
-		    idx = afp ? afp-afs : 0;
+				idx = afp ? afp - afs : 0;
 #endif
-		    if (afp)
-			p++;
+				if (afp)
+					p++;
 #ifndef NO_IPV6
-		    dlg_radiobutton_set(pfd->addressfamily, dlg, idx);
+				dlg_radiobutton_set(pfd->addressfamily, dlg, idx);
 #endif
 
-		    dir = *p;
+				dir = *p;
 
-                    val = conf_get_str_str(conf, CONF_portfwd, key);
-		    if (!strcmp(val, "D")) {
-                        dir = 'D';
-			val = "";
-		    }
+				val = conf_get_str_str(conf, CONF_portfwd, key);
+				if (!strcmp(val, "D")) {
+					dir = 'D';
+					val = "";
+				}
 
-		    dlg_radiobutton_set(pfd->direction, dlg,
+				dlg_radiobutton_set(pfd->direction, dlg,
 					strchr(dirs, dir) - dirs);
-		    p++;
+				p++;
 
-		    dlg_editbox_set(pfd->sourcebox, dlg, p);
-		    dlg_editbox_set(pfd->destbox, dlg, val);
-		    /* And delete it */
-		    conf_del_str_str(conf, CONF_portfwd, key);
-		}
+				dlg_editbox_set(pfd->sourcebox, dlg, p);
+				dlg_editbox_set(pfd->destbox, dlg, val);
+				/* And delete it */
+				conf_del_str_str(conf, CONF_portfwd, key);
+			}
 	    }
 	    dlg_refresh(pfd->listbox, dlg);
 	}
@@ -2558,6 +2575,10 @@ void setup_config_box(struct controlbox *b, int midsession,
 		      HELPCTX(ssh_tunnels_portfwd_localhost),
 		      conf_checkbox_handler,
 		      I(CONF_lport_acceptall));
+	ctrl_checkbox(s, "Map local ip to loopback", 'b',
+		HELPCTX(ssh_tunnels_portfwd_localhost),
+		conf_checkbox_handler,
+		I(CONF_lport_loopback));
 	ctrl_checkbox(s, "Remote ports do the same (SSH-2 only)", 'p',
 		      HELPCTX(ssh_tunnels_portfwd_localhost),
 		      conf_checkbox_handler,
@@ -2591,10 +2612,9 @@ void setup_config_box(struct controlbox *b, int midsession,
 					 portfwd_handler, P(pfd));
 	pfd->addbutton->generic.column = 2;
 	pfd->addbutton->generic.tabdelay = 1;
-	pfd->sourcebox = ctrl_editbox(s, "Source port", 's', 40,
+	pfd->sourcebox = ctrl_editbox(s, "Source", 's', 67,
 				      HELPCTX(ssh_tunnels_portfwd),
 				      portfwd_handler, P(pfd), P(NULL));
-	pfd->sourcebox->generic.column = 0;
 	pfd->destbox = ctrl_editbox(s, "Destination", 'i', 67,
 				    HELPCTX(ssh_tunnels_portfwd),
 				    portfwd_handler, P(pfd), P(NULL));

@@ -2139,12 +2139,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    char *str;
 	    show_mouseptr(1);
 	    str = dupprintf("%s Exit Confirmation", appname);
-	    if (session_closed || !conf_get_int(conf, CONF_warn_on_close) ||
-		MessageBox(hwnd,
-			   "Are you sure you want to close this session?",
-			   str, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
-		== IDOK)
-		DestroyWindow(hwnd);
+		if (session_closed || !conf_get_int(conf, CONF_warn_on_close) ||
+			MessageBox(hwnd,
+				"Are you sure you want to close this session?",
+				str, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
+			== IDOK) {
+			close_session(NULL);
+			DestroyWindow(hwnd);
+		}
 	    sfree(str);
 	}
 	return 0;

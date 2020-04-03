@@ -8,8 +8,8 @@
  * default stuff used for local development runs of 'make'.
  */
 
-#define TEXTVER "WALLIX PuTTY 0.70-2"
-#define SSHVER "WALLIX PuTTY-Release-0.70.2"
+#define TEXTVER "WALLIX PuTTY 0.73-3"
+#define SSHVER "WALLIX PuTTY-Release-0.73.3"
 #define BINARY_VERSION 0,0,0,0
 
 #ifndef SOURCE_COMMIT

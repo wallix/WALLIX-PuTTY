@@ -17,8 +17,15 @@
 #include "putty.h"
 #include "network.h"
 #include "tree234.h"
+#include "windows/resource.h"
 
 #include <ws2tcpip.h>
+#include <strsafe.h>
+#include <winsock.h>
+#include <ws2ipdef.h>
+#include <iphlpapi.h>
+#include <stdio.h>
+
 
 #ifndef NO_IPV6
 #ifdef __clang__
@@ -1942,12 +1949,132 @@ char *get_hostname(void)
     return hostname;
 }
 
-SockAddr platform_get_x11_unix_address(const char *display, int displaynum,
-				       char **canonicalname)
+SockAddr platform_get_x11_unix_address(const char* display, int displaynum,
+    char** canonicalname)
 {
     SockAddr ret = snew(struct SockAddr_tag);
     memset(ret, 0, sizeof(struct SockAddr_tag));
     ret->error = "unix sockets not supported on this platform";
     ret->refcount = 1;
     return ret;
+}
+
+int unmap_ip_from_loopback(struct iploop *ipl) {
+    BOOL ret = FALSE;
+    
+    if (ipl->event != NULL) {
+        SetEvent(ipl->event);
+        WaitForSingleObject(ipl->child, INFINITE);
+        CloseHandle(ipl->event);
+    }
+    else if (ipl->child != NULL) {
+        TerminateProcess(ipl->child, 1);
+    }
+    
+    if (ipl->child != NULL) {
+        CloseHandle(ipl->child);
+        CloseHandle(ipl->thread);
+        ipl->child = ipl->thread = NULL;
+    }
+
+    if (ipl->exe != NULL) {
+        while (DeleteFileW(ipl->exe) == 0) {
+            Sleep(50);
+        }
+        free(ipl->exe);
+    }
+
+    return ret == FALSE;
+}
+
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
+
+    ipl->exe = NULL;
+    ipl->event = NULL;
+    ipl->child = NULL;
+    ipl->thread = NULL;
+
+    HRSRC hrsrc = FindResourceW(NULL, MAKEINTRESOURCEW(IPLOOP_RESOURCE), RT_RCDATA);
+    if (hrsrc == NULL) {
+        return GetLastError();
+    }
+
+    DWORD resSize = SizeofResource(NULL, hrsrc);
+    HGLOBAL hGlbl = LoadResource(NULL, hrsrc);
+    if (hGlbl == NULL) {
+        return GetLastError();;
+    }
+
+    BYTE* pExeResource = (BYTE*)LockResource(hGlbl);
+    if (pExeResource == NULL) {
+        return GetLastError();;
+    }
+
+    wchar_t tempDir[MAX_PATH + 1];
+    if (GetTempPathW(MAX_PATH + 1, tempDir) == 0)  {
+        return GetLastError();;
+    }
+
+    wchar_t exeName[MAX_PATH + 1 + 4];
+    if (GetTempFileNameW(tempDir, L"ipl", GetCurrentProcessId(), exeName) == 0) {
+        return GetLastError();;
+    }
+    wcscat(exeName, L".exe");
+
+    HANDLE hFile = CreateFileW(exeName, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD bytesWritten = 0;
+        WriteFile(hFile, pExeResource, resSize, &bytesWritten, NULL);
+        CloseHandle(hFile);
+    }
+
+    size_t size = wcslen(exeName);
+    for (int i = 0; i < n; i++) {
+        size += 1 + strlen(addr[i]);
+    }
+    wchar_t *szCmdline = (wchar_t *)malloc(size * sizeof(wchar_t));
+    wcsncpy(szCmdline, exeName, size);
+    for (int i = 0; i < n; i++) {
+        wcscat(szCmdline, L" ");
+        wchar_t tmpaddr[64];
+        if (MultiByteToWideChar(CP_ACP, 0, addr[i], -1, tmpaddr, 24) == 0) {
+            DWORD err = GetLastError();
+            free(szCmdline);
+            return err;
+        }
+        wcscat(szCmdline, tmpaddr);
+    }
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+    STARTUPINFO si;
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+
+    wchar_t eventName[MAX_PATH];
+    DWORD pid = GetProcessId(GetCurrentProcess());
+    _snwprintf(eventName, MAX_PATH, L"Local\\iploop%d", pid);
+    SetEnvironmentVariableW(L"IPLOOP_EVENT", eventName);
+
+    HANDLE event = CreateEventW(NULL, FALSE, FALSE, eventName);
+    if (event == NULL) {
+        return GetLastError();
+    }
+
+    // Create the child process. 
+
+    if (CreateProcessW(exeName, szCmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi) == FALSE) {
+        DWORD err = GetLastError();
+        CloseHandle(event);
+        free(szCmdline);
+        return err;
+    }
+
+    ipl->exe = szCmdline;  
+    ipl->event = event;
+    ipl->child = pi.hProcess;
+    ipl->thread = pi.hThread;
+
+    return NO_ERROR;
 }

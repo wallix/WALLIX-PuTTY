@@ -1,6 +1,5 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include "windows.h"
 #include "resource.h"
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
@@ -8,6 +7,14 @@
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// RCDATA
+//
+
+IPLOOP_RESOURCE         RCDATA                  "iploop.exe"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -71,8 +78,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,70,0,2
- PRODUCTVERSION 0,70,0,2
+ FILEVERSION 0,73,0,3
+ PRODUCTVERSION 0,73,0,3
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L
