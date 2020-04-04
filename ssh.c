@@ -11393,10 +11393,6 @@ static void ssh_free(void *handle)
     struct ssh_rportfwd *pf;
     struct X11FakeAuth *auth;
 
-    if (conf_get_int(ssh->conf, CONF_lport_loopback)) {
-        unmap_ip_from_loopback(&ssh->ipl);
-    }
-
     if (ssh->v1_cipher_ctx)
 	ssh->cipher->free_context(ssh->v1_cipher_ctx);
     if (ssh->cs_cipher_ctx)

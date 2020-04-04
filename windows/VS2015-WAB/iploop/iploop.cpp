@@ -10,17 +10,17 @@
 #include <io.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <memory.h>
+#include <Windows.h>
 #include <tchar.h>
 #include <shellapi.h>
 #include <iphlpapi.h>
-#include <winsock.h>
 #include <processenv.h>
+#include <ws2tcpip.h>
 
 #include "iploop.h"
 
-static const wchar_t* appname = L"Putty Loopback IP Manager";
+static const wchar_t* appname = L"WALLIX PuTYY IP Loopback Manager";
 
 int error(const wchar_t* message, DWORD code) {
 	PWSTR lpMsgBuf = NULL;
@@ -54,27 +54,19 @@ void unmap(ULONG* nte, int n) {
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 
-	wchar_t eventName[MAX_PATH];
-	if (GetEnvironmentVariable(L"IPLOOP_EVENT", eventName, MAX_PATH) == 0) {
-		return error(L"Event name is not defined", GetLastError());
-	}
-
-	HANDLE event = OpenEvent(SYNCHRONIZE|DELETE, FALSE, eventName);
-	if (NULL == event) {
-		return error(L"Cannot access event", GetLastError());
-	}
-
 	int nArgs;
 	LPWSTR* szArglist = CommandLineToArgvW(pCmdLine, &nArgs);
 	if (NULL == szArglist) {
 		MessageBox(NULL, L"Cannot parse command line", appname, MB_ICONERROR | MB_OK);
 		return 1;
 	}
-	if (nArgs < 1) {
+	if (nArgs < 2) {
 		LocalFree(szArglist);
-		MessageBox(NULL, L"iploop ip1 ip2...", appname, MB_ICONERROR | MB_OK);
+		MessageBox(NULL, L"iploop <event name> ip1 ip2...", appname, MB_ICONERROR | MB_OK);
 		return 1;
 	}
+
+	wchar_t* eventName = szArglist[0];
 
 	int nbContexts = 0;
 	HANDLE heap = GetProcessHeap();
@@ -88,15 +80,28 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		return error(L"Cannot allocate NTE Contexts", GetLastError());
 	}
 
-	for (int i = 0; i < nArgs; i++) {
-		char addr[24];
-		if (WideCharToMultiByte(CP_ACP, 0, szArglist[i], -1, addr, 24, NULL, NULL) == 0) {
-			return error(L"Cannot convert IP to ANSI", GetLastError());
+	ADDRINFOW hints;
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	WSADATA wsaData;
+	DWORD wsaErr = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (wsaErr != 0) {
+		return error(L"Winsock initialization failed", wsaErr);
+	}
+
+	for (int i = 1; i < nArgs; i++) {
+		PADDRINFOW resAddr;
+		DWORD ret = GetAddrInfoW(szArglist[i], NULL, &hints, &resAddr);
+		if (ret != 0) {
+			unmap(NTEContexts, nbContexts);
+			return error(szArglist[i], ret);
 		}
-		unsigned int iaIPAddress = inet_addr(addr);
-		unsigned int iaIPMask = inet_addr("255.255.255.255");
 		ULONG NTEInstance = 0;
-		DWORD ret = AddIPAddress(iaIPAddress, iaIPMask, 1, &NTEContexts[nbContexts], &NTEInstance);
+		IN_ADDR *sin = (IN_ADDR*)(resAddr->ai_addr->sa_data + 2);
+		ret = AddIPAddress((IPAddr)sin->S_un.S_addr, 0xFFFFFFFF, 1, &NTEContexts[nbContexts], &NTEInstance);
 		if (ret != NO_ERROR && ret != ERROR_OBJECT_ALREADY_EXISTS) {
 			unmap(NTEContexts, nbContexts);
 			return error(L"Cannot map IP address to loopback interface", ret);
@@ -104,6 +109,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		if (ret != ERROR_OBJECT_ALREADY_EXISTS) {
 			nbContexts++;
 		}
+	}
+
+	HANDLE event = OpenEvent(SYNCHRONIZE | DELETE, FALSE, eventName);
+	if (NULL == event) {
+		return error(L"Cannot access event", GetLastError());
 	}
 
 	if (WaitForSingleObject(event, INFINITE) != WAIT_OBJECT_0) {

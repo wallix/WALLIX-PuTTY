@@ -1966,6 +1966,7 @@ int unmap_ip_from_loopback(struct iploop *ipl) {
         SetEvent(ipl->event);
         WaitForSingleObject(ipl->child, INFINITE);
         CloseHandle(ipl->event);
+        ipl->event = NULL;
     }
     else if (ipl->child != NULL) {
         TerminateProcess(ipl->child, 1);
@@ -1982,6 +1983,7 @@ int unmap_ip_from_loopback(struct iploop *ipl) {
             Sleep(50);
         }
         free(ipl->exe);
+        ipl->exe = NULL;
     }
 
     return ret == FALSE;
@@ -2017,8 +2019,13 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 
     wchar_t exeName[MAX_PATH + 1 + 4];
     if (GetTempFileNameW(tempDir, L"ipl", GetCurrentProcessId(), exeName) == 0) {
-        return GetLastError();;
+        return GetLastError();
     }
+
+    wchar_t *slash = wcsrchr(exeName, L'\\');
+    wchar_t eventName[MAX_PATH];
+    _snwprintf(eventName, MAX_PATH, L"Local\\%s", slash != NULL ? slash + 1 : exeName);
+
     wcscat(exeName, L".exe");
 
     HANDLE hFile = CreateFileW(exeName, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -2031,10 +2038,10 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 
     size_t size = wcslen(exeName);
     for (int i = 0; i < n; i++) {
-        size += 1 + strlen(addr[i]);
+        size += sizeof(wchar_t) + 2 * strlen(addr[i]);
     }
     wchar_t *szCmdline = (wchar_t *)malloc(size * sizeof(wchar_t));
-    wcsncpy(szCmdline, exeName, size);
+    wcscpy(szCmdline, eventName);
     for (int i = 0; i < n; i++) {
         wcscat(szCmdline, L" ");
         wchar_t tmpaddr[64];
@@ -2052,26 +2059,21 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
     ZeroMemory(&si, sizeof(STARTUPINFO));
     si.cb = sizeof(STARTUPINFO);
 
-    wchar_t eventName[MAX_PATH];
-    DWORD pid = GetProcessId(GetCurrentProcess());
-    _snwprintf(eventName, MAX_PATH, L"Local\\iploop%d", pid);
-    SetEnvironmentVariableW(L"IPLOOP_EVENT", eventName);
-
     HANDLE event = CreateEventW(NULL, FALSE, FALSE, eventName);
     if (event == NULL) {
         return GetLastError();
     }
 
     // Create the child process. 
-
-    if (CreateProcessW(exeName, szCmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi) == FALSE) {
-        DWORD err = GetLastError();
+    //CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    DWORD err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
+    if (err < 32) {
         CloseHandle(event);
         free(szCmdline);
         return err;
     }
 
-    ipl->exe = szCmdline;  
+    ipl->exe = _wcsdup(exeName);
     ipl->event = event;
     ipl->child = pi.hProcess;
     ipl->thread = pi.hThread;

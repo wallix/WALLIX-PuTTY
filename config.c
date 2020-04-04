@@ -1182,9 +1182,8 @@ static void portfwd_handler(union control *ctrl, void *dlg,
 		else
 			type = "D";
 
-		int map_loopback = conf_get_int(conf, CONF_lport_loopback);
 		src = dlg_editbox_get(pfd->sourcebox, dlg);
-		if (map_loopback) {
+		if (conf_get_int(conf, CONF_lport_loopback)) {
 			if (!*src || !host_strchr(src, ':')) {
 				dlg_error_msg(dlg,
 					"You need to specify a source address\n"
