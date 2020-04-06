@@ -11372,7 +11372,7 @@ static const char *ssh_init(void *frontend_handle, void **backend_handle,
 			}
 		}
 
-        if (nbAddr > 0 && (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr)) != 0) {
+        if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr) != 0) {
             bomb_out(ssh, "Cannot map IP(s) to loopback");
         }
     }

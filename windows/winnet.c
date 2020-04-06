@@ -1996,6 +1996,10 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
     ipl->child = NULL;
     ipl->thread = NULL;
 
+    if (n < 1) {
+        return NO_ERROR;
+    }
+
     HRSRC hrsrc = FindResourceW(NULL, MAKEINTRESOURCEW(IPLOOP_RESOURCE), RT_RCDATA);
     if (hrsrc == NULL) {
         return GetLastError();
