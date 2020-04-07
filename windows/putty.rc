@@ -98,7 +98,7 @@ BEGIN
             VALUE "FileDescription", "SSH, Telnet and Rlogin client"
             VALUE "FileVersion", "Unidentified build"
             VALUE "InternalName", "WALLIX PuTTY"
-            VALUE "LegalCopyright", "Copyright © 1997-2019 Simon Tatham, Jakub Kotrla, WALLIX."
+            VALUE "LegalCopyright", "Copyright Â© 1997-2019 Simon Tatham, Jakub Kotrla, WALLIX."
             VALUE "OriginalFilename", "WALLIX PuTTY"
             VALUE "PrivateBuild", "Unidentified build"
             VALUE "ProductName", "WALLIX PuTTY"

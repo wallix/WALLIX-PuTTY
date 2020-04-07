@@ -2,12 +2,31 @@
  * gtkcols.c - implementation of the `Columns' GTK layout container.
  */
 
+#include <assert.h>
 #include <gtk/gtk.h>
+#include "defs.h"
 #include "gtkcompat.h"
 #include "gtkcols.h"
 
+#if GTK_CHECK_VERSION(2,0,0)
+/* The "focus" method lives in GtkWidget from GTK 2 onwards, but it
+ * was in GtkContainer in GTK 1 */
+#define FOCUS_METHOD_SUPERCLASS GtkWidget
+#define FOCUS_METHOD_LOCATION widget_class /* used in columns_init */
+#define CHILD_FOCUS(cont, dir) gtk_widget_child_focus(GTK_WIDGET(cont), dir)
+#else
+#define FOCUS_METHOD_SUPERCLASS GtkContainer
+#define FOCUS_METHOD_LOCATION container_class
+#define CHILD_FOCUS(cont, dir) gtk_container_focus(GTK_CONTAINER(cont), dir)
+#endif
+
 static void columns_init(Columns *cols);
 static void columns_class_init(ColumnsClass *klass);
+#if !GTK_CHECK_VERSION(2,0,0)
+static void columns_finalize(GtkObject *object);
+#else
+static void columns_finalize(GObject *object);
+#endif
 static void columns_map(GtkWidget *widget);
 static void columns_unmap(GtkWidget *widget);
 #if !GTK_CHECK_VERSION(2,0,0)
@@ -18,9 +37,8 @@ static void columns_base_add(GtkContainer *container, GtkWidget *widget);
 static void columns_remove(GtkContainer *container, GtkWidget *widget);
 static void columns_forall(GtkContainer *container, gboolean include_internals,
                            GtkCallback callback, gpointer callback_data);
-#if !GTK_CHECK_VERSION(2,0,0)
-static gint columns_focus(GtkContainer *container, GtkDirectionType dir);
-#endif
+static gint columns_focus(FOCUS_METHOD_SUPERCLASS *container,
+                          GtkDirectionType dir);
 static GType columns_child_type(GtkContainer *container);
 #if GTK_CHECK_VERSION(3,0,0)
 static void columns_get_preferred_width(GtkWidget *widget,
@@ -70,37 +88,35 @@ GType columns_get_type(void)
     if (!columns_type) {
         static const GTypeInfo columns_info = {
             sizeof(ColumnsClass),
-	    NULL,
-	    NULL,
+            NULL,
+            NULL,
             (GClassInitFunc) columns_class_init,
-	    NULL,
-	    NULL,
+            NULL,
+            NULL,
             sizeof(Columns),
-	    0,
+            0,
             (GInstanceInitFunc)columns_init,
         };
 
         columns_type = g_type_register_static(GTK_TYPE_CONTAINER, "Columns",
-					      &columns_info, 0);
+                                              &columns_info, 0);
     }
 
     return columns_type;
 }
 #endif
 
-#if !GTK_CHECK_VERSION(2,0,0)
-static gint (*columns_inherited_focus)(GtkContainer *container,
-				       GtkDirectionType direction);
-#endif
+static gint (*columns_inherited_focus)(FOCUS_METHOD_SUPERCLASS *container,
+                                       GtkDirectionType direction);
 
 static void columns_class_init(ColumnsClass *klass)
 {
 #if !GTK_CHECK_VERSION(2,0,0)
-    /* GtkObjectClass *object_class = (GtkObjectClass *)klass; */
+    GtkObjectClass *object_class = (GtkObjectClass *)klass;
     GtkWidgetClass *widget_class = (GtkWidgetClass *)klass;
     GtkContainerClass *container_class = (GtkContainerClass *)klass;
 #else
-    /* GObjectClass *object_class = G_OBJECT_CLASS(klass); */
+    GObjectClass *object_class = G_OBJECT_CLASS(klass);
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
     GtkContainerClass *container_class = GTK_CONTAINER_CLASS(klass);
 #endif
@@ -111,6 +127,7 @@ static void columns_class_init(ColumnsClass *klass)
     parent_class = g_type_class_peek_parent(klass);
 #endif
 
+    object_class->finalize = columns_finalize;
     widget_class->map = columns_map;
     widget_class->unmap = columns_unmap;
 #if !GTK_CHECK_VERSION(2,0,0)
@@ -133,20 +150,63 @@ static void columns_class_init(ColumnsClass *klass)
     container_class->remove = columns_remove;
     container_class->forall = columns_forall;
     container_class->child_type = columns_child_type;
-#if !GTK_CHECK_VERSION(2,0,0)
+
     /* Save the previous value of this method. */
     if (!columns_inherited_focus)
-	columns_inherited_focus = container_class->focus;
-    container_class->focus = columns_focus;
-#endif
+        columns_inherited_focus = FOCUS_METHOD_LOCATION->focus;
+    FOCUS_METHOD_LOCATION->focus = columns_focus;
 }
 
 static void columns_init(Columns *cols)
 {
-    gtk_widget_set_has_window(GTK_WIDGET(cols), FALSE);
+    gtk_widget_set_has_window(GTK_WIDGET(cols), false);
 
     cols->children = NULL;
     cols->spacing = 0;
+}
+
+static void columns_child_free(gpointer vchild)
+{
+    ColumnsChild *child = (ColumnsChild *)vchild;
+    if (child->percentages)
+        g_free(child->percentages);
+    g_free(child);
+}
+
+static void columns_finalize(
+#if !GTK_CHECK_VERSION(2,0,0)
+    GtkObject *object
+#else
+    GObject *object
+#endif
+    )
+{
+    Columns *cols;
+
+    g_return_if_fail(object != NULL);
+    g_return_if_fail(IS_COLUMNS(object));
+
+    cols = COLUMNS(object);
+
+#if !GTK_CHECK_VERSION(2,0,0)
+    {
+        GList *node;
+        for (node = cols->children; node; node = node->next)
+            if (node->data)
+                columns_child_free(node->data);
+    }
+    g_list_free(cols->children);
+#else
+    g_list_free_full(cols->children, columns_child_free);
+#endif
+
+    cols->children = NULL;
+
+#if !GTK_CHECK_VERSION(2,0,0)
+    GTK_OBJECT_CLASS(parent_class)->finalize(object);
+#else
+    G_OBJECT_CLASS(parent_class)->finalize(object);
+#endif
 }
 
 /*
@@ -164,13 +224,13 @@ static void columns_map(GtkWidget *widget)
     g_return_if_fail(IS_COLUMNS(widget));
 
     cols = COLUMNS(widget);
-    gtk_widget_set_mapped(GTK_WIDGET(cols), TRUE);
+    gtk_widget_set_mapped(GTK_WIDGET(cols), true);
 
     for (children = cols->children;
          children && (child = children->data);
          children = children->next) {
         if (child->widget &&
-	    gtk_widget_get_visible(child->widget) &&
+            gtk_widget_get_visible(child->widget) &&
             !gtk_widget_get_mapped(child->widget))
             gtk_widget_map(child->widget);
     }
@@ -185,13 +245,13 @@ static void columns_unmap(GtkWidget *widget)
     g_return_if_fail(IS_COLUMNS(widget));
 
     cols = COLUMNS(widget);
-    gtk_widget_set_mapped(GTK_WIDGET(cols), FALSE);
+    gtk_widget_set_mapped(GTK_WIDGET(cols), false);
 
     for (children = cols->children;
          children && (child = children->data);
          children = children->next) {
         if (child->widget &&
-	    gtk_widget_get_visible(child->widget) &&
+            gtk_widget_get_visible(child->widget) &&
             gtk_widget_get_mapped(child->widget))
             gtk_widget_unmap(child->widget);
     }
@@ -214,7 +274,7 @@ static void columns_draw(GtkWidget *widget, GdkRectangle *area)
              children && (child = children->data);
              children = children->next) {
             if (child->widget &&
-		GTK_WIDGET_DRAWABLE(child->widget) &&
+                GTK_WIDGET_DRAWABLE(child->widget) &&
                 gtk_widget_intersect(child->widget, area, &child_area))
                 gtk_widget_draw(child->widget, &child_area);
         }
@@ -227,9 +287,9 @@ static gint columns_expose(GtkWidget *widget, GdkEventExpose *event)
     GList *children;
     GdkEventExpose child_event;
 
-    g_return_val_if_fail(widget != NULL, FALSE);
-    g_return_val_if_fail(IS_COLUMNS(widget), FALSE);
-    g_return_val_if_fail(event != NULL, FALSE);
+    g_return_val_if_fail(widget != NULL, false);
+    g_return_val_if_fail(IS_COLUMNS(widget), false);
+    g_return_val_if_fail(event != NULL, false);
 
     if (GTK_WIDGET_DRAWABLE(widget)) {
         cols = COLUMNS(widget);
@@ -239,14 +299,14 @@ static gint columns_expose(GtkWidget *widget, GdkEventExpose *event)
              children && (child = children->data);
              children = children->next) {
             if (child->widget &&
-		GTK_WIDGET_DRAWABLE(child->widget) &&
+                GTK_WIDGET_DRAWABLE(child->widget) &&
                 GTK_WIDGET_NO_WINDOW(child->widget) &&
                 gtk_widget_intersect(child->widget, &event->area,
                                      &child_event.area))
                 gtk_widget_event(child->widget, (GdkEvent *)&child_event);
         }
     }
-    return FALSE;
+    return false;
 }
 #endif
 
@@ -272,7 +332,7 @@ static void columns_remove(GtkContainer *container, GtkWidget *widget)
     ColumnsChild *child;
     GtkWidget *childw;
     GList *children;
-    gboolean was_visible;
+    bool was_visible;
 
     g_return_if_fail(container != NULL);
     g_return_if_fail(IS_COLUMNS(container));
@@ -312,9 +372,6 @@ static void columns_remove(GtkContainer *container, GtkWidget *widget)
 
         cols->taborder = g_list_remove_link(cols->taborder, children);
         g_list_free(children);
-#if GTK_CHECK_VERSION(2,0,0)
-	gtk_container_set_focus_chain(container, cols->taborder);
-#endif
         break;
     }
 }
@@ -344,8 +401,8 @@ static void columns_forall(GtkContainer *container, gboolean include_internals,
          * callback.
          */
         next = children->next;
-	if (child->widget)
-	    callback(child->widget, callback_data);
+        if (child->widget)
+            callback(child->widget, callback_data);
     }
 }
 
@@ -383,7 +440,7 @@ void columns_set_cols(Columns *cols, gint ncols, const gint *percentages)
     childdata->widget = NULL;
     childdata->ncols = ncols;
     childdata->percentages = g_new(gint, ncols);
-    childdata->force_left = FALSE;
+    childdata->force_left = false;
     for (i = 0; i < ncols; i++)
         childdata->percentages[i] = percentages[i];
 
@@ -404,17 +461,14 @@ void columns_add(Columns *cols, GtkWidget *child,
     childdata->widget = child;
     childdata->colstart = colstart;
     childdata->colspan = colspan;
-    childdata->force_left = FALSE;
+    childdata->force_left = false;
     childdata->same_height_as = NULL;
+    childdata->percentages = NULL;
 
     cols->children = g_list_append(cols->children, childdata);
     cols->taborder = g_list_append(cols->taborder, child);
 
     gtk_widget_set_parent(child, GTK_WIDGET(cols));
-
-#if GTK_CHECK_VERSION(2,0,0)
-    gtk_container_set_focus_chain(GTK_CONTAINER(cols), cols->taborder);
-#endif
 
     if (gtk_widget_get_realized(GTK_WIDGET(cols)))
         gtk_widget_realize(child);
@@ -454,7 +508,7 @@ void columns_force_left_align(Columns *cols, GtkWidget *widget)
     child = columns_find_child(cols, widget);
     g_return_if_fail(child != NULL);
 
-    child->force_left = TRUE;
+    child->force_left = true;
     if (gtk_widget_get_visible(widget))
         gtk_widget_queue_resize(GTK_WIDGET(cols));
 }
@@ -496,79 +550,74 @@ void columns_taborder_last(Columns *cols, GtkWidget *widget)
 
         cols->taborder = g_list_remove_link(cols->taborder, children);
         g_list_free(children);
-	cols->taborder = g_list_append(cols->taborder, widget);
-#if GTK_CHECK_VERSION(2,0,0)
-	gtk_container_set_focus_chain(GTK_CONTAINER(cols), cols->taborder);
-#endif
+        cols->taborder = g_list_append(cols->taborder, widget);
         break;
     }
 }
 
-#if !GTK_CHECK_VERSION(2,0,0)
 /*
  * Override GtkContainer's focus movement so the user can
  * explicitly specify the tab order.
  */
-static gint columns_focus(GtkContainer *container, GtkDirectionType dir)
+static gint columns_focus(FOCUS_METHOD_SUPERCLASS *super, GtkDirectionType dir)
 {
     Columns *cols;
     GList *pos;
     GtkWidget *focuschild;
 
-    g_return_val_if_fail(container != NULL, FALSE);
-    g_return_val_if_fail(IS_COLUMNS(container), FALSE);
+    g_return_val_if_fail(super != NULL, false);
+    g_return_val_if_fail(IS_COLUMNS(super), false);
 
-    cols = COLUMNS(container);
+    cols = COLUMNS(super);
 
-    if (!GTK_WIDGET_DRAWABLE(cols) ||
-	!GTK_WIDGET_IS_SENSITIVE(cols))
-	return FALSE;
+    if (!gtk_widget_is_drawable(GTK_WIDGET(cols)) ||
+        !gtk_widget_is_sensitive(GTK_WIDGET(cols)))
+        return false;
 
-    if (!GTK_WIDGET_CAN_FOCUS(container) &&
-	(dir == GTK_DIR_TAB_FORWARD || dir == GTK_DIR_TAB_BACKWARD)) {
+    if (!gtk_widget_get_can_focus(GTK_WIDGET(cols)) &&
+        (dir == GTK_DIR_TAB_FORWARD || dir == GTK_DIR_TAB_BACKWARD)) {
 
-	focuschild = container->focus_child;
-	gtk_container_set_focus_child(container, NULL);
+        focuschild = gtk_container_get_focus_child(GTK_CONTAINER(cols));
+        gtk_container_set_focus_child(GTK_CONTAINER(cols), NULL);
 
-	if (dir == GTK_DIR_TAB_FORWARD)
-	    pos = cols->taborder;
-	else
-	    pos = g_list_last(cols->taborder);
+        if (dir == GTK_DIR_TAB_FORWARD)
+            pos = cols->taborder;
+        else
+            pos = g_list_last(cols->taborder);
 
-	while (pos) {
-	    GtkWidget *child = pos->data;
+        while (pos) {
+            GtkWidget *child = pos->data;
 
-	    if (focuschild) {
-		if (focuschild == child) {
-		    focuschild = NULL; /* now we can start looking in here */
-		    if (GTK_WIDGET_DRAWABLE(child) &&
-			GTK_IS_CONTAINER(child) &&
-			!GTK_WIDGET_HAS_FOCUS(child)) {
-			if (gtk_container_focus(GTK_CONTAINER(child), dir))
-			    return TRUE;
-		    }
-		}
-	    } else if (GTK_WIDGET_DRAWABLE(child)) {
-		if (GTK_IS_CONTAINER(child)) {
-		    if (gtk_container_focus(GTK_CONTAINER(child), dir))
-			return TRUE;
-		} else if (GTK_WIDGET_CAN_FOCUS(child)) {
-		    gtk_widget_grab_focus(child);
-		    return TRUE;
-		}
-	    }
+            if (focuschild) {
+                if (focuschild == child) {
+                    focuschild = NULL; /* now we can start looking in here */
+                    if (gtk_widget_is_drawable(child) &&
+                        GTK_IS_CONTAINER(child) &&
+                        !gtk_widget_has_focus(child)) {
+                        if (CHILD_FOCUS(child, dir))
+                            return true;
+                    }
+                }
+            } else if (gtk_widget_is_drawable(child)) {
+                if (GTK_IS_CONTAINER(child)) {
+                    if (CHILD_FOCUS(child, dir))
+                        return true;
+                } else if (gtk_widget_get_can_focus(child)) {
+                    gtk_widget_grab_focus(child);
+                    return true;
+                }
+            }
 
-	    if (dir == GTK_DIR_TAB_FORWARD)
-		pos = pos->next;
-	    else
-		pos = pos->prev;
-	}
+            if (dir == GTK_DIR_TAB_FORWARD)
+                pos = pos->next;
+            else
+                pos = pos->prev;
+        }
 
-	return FALSE;
+        return false;
     } else
-	return columns_inherited_focus(container, dir);
+        return columns_inherited_focus(super, dir);
 }
-#endif
 
 /*
  * Underlying parts of the layout algorithm, to compute the Columns
@@ -601,19 +650,20 @@ static gint columns_compute_width(Columns *cols, widget_dim_fn_t get_width)
          children && (child = children->data);
          children = children->next) {
 
-	if (!child->widget) {
-	    /* Column reconfiguration. */
-	    ncols = child->ncols;
-	    percentages = child->percentages;
-	    continue;
-	}
+        if (!child->widget) {
+            /* Column reconfiguration. */
+            ncols = child->ncols;
+            percentages = child->percentages;
+            continue;
+        }
 
         /* Only take visible widgets into account. */
         if (!gtk_widget_get_visible(child->widget))
             continue;
 
         childwidth = get_width(child);
-	colspan = child->colspan ? child->colspan : ncols-child->colstart;
+        colspan = child->colspan ? child->colspan : ncols-child->colstart;
+        assert(colspan > 0);
 
 #ifdef COLUMNS_WIDTH_DIAGNOSTICS
         printf("compute_width(%p): ", cols);
@@ -621,7 +671,7 @@ static gint columns_compute_width(Columns *cols, widget_dim_fn_t get_width)
             printf("label %p '%s' wrap=%s: ", child->widget,
                    gtk_label_get_text(GTK_LABEL(child->widget)),
                    (gtk_label_get_line_wrap(GTK_LABEL(child->widget))
-                    ? "TRUE" : "FALSE"));
+                    ? "true" : "false"));
         else
             printf("widget %p: ", child->widget);
         {
@@ -687,13 +737,10 @@ static void columns_alloc_horiz(Columns *cols, gint ourwidth,
     ColumnsChild *child;
     GList *children;
     gint i, ncols, colspan, border, *colxpos, childwidth;
-    const gint *percentages;
-    static const gint onecol[] = { 100 };
 
     border = gtk_container_get_border_width(GTK_CONTAINER(cols));
 
     ncols = 1;
-    percentages = onecol;
     /* colxpos gives the starting x position of each column.
      * We supply n+1 of them, so that we can find the RH edge easily.
      * All ending x positions are expected to be adjusted afterwards by
@@ -706,42 +753,41 @@ static void columns_alloc_horiz(Columns *cols, gint ourwidth,
          children && (child = children->data);
          children = children->next) {
 
-	if (!child->widget) {
-	    gint percent;
+        if (!child->widget) {
+            gint percent;
 
-	    /* Column reconfiguration. */
-	    ncols = child->ncols;
-	    percentages = child->percentages;
-	    colxpos = g_renew(gint, colxpos, ncols + 1);
-	    colxpos[0] = 0;
-	    percent = 0;
-	    for (i = 0; i < ncols; i++) {
-		percent += percentages[i];
-		colxpos[i+1] = (((ourwidth - 2*border) + cols->spacing)
-				* percent / 100);
-	    }
-	    continue;
-	}
+            /* Column reconfiguration. */
+            ncols = child->ncols;
+            colxpos = g_renew(gint, colxpos, ncols + 1);
+            colxpos[0] = 0;
+            percent = 0;
+            for (i = 0; i < ncols; i++) {
+                percent += child->percentages[i];
+                colxpos[i+1] = (((ourwidth - 2*border) + cols->spacing)
+                                * percent / 100);
+            }
+            continue;
+        }
 
         /* Only take visible widgets into account. */
         if (!gtk_widget_get_visible(child->widget))
             continue;
 
         childwidth = get_width(child);
-	colspan = child->colspan ? child->colspan : ncols-child->colstart;
+        colspan = child->colspan ? child->colspan : ncols-child->colstart;
 
         /*
          * Starting x position is cols[colstart].
          * Ending x position is cols[colstart+colspan] - spacing.
-	 * 
-	 * Unless we're forcing left, in which case the width is
-	 * exactly the requisition width.
+         *
+         * Unless we're forcing left, in which case the width is
+         * exactly the requisition width.
          */
         child->x = colxpos[child->colstart];
-	if (child->force_left)
-	    child->w = childwidth;
-	else
-	    child->w = (colxpos[child->colstart+colspan] -
+        if (child->force_left)
+            child->w = childwidth;
+        else
+            child->w = (colxpos[child->colstart+colspan] -
                         colxpos[child->colstart] - cols->spacing);
     }
 
@@ -764,18 +810,18 @@ static gint columns_compute_height(Columns *cols, widget_dim_fn_t get_height)
          children && (child = children->data);
          children = children->next) {
 
-	if (!child->widget) {
-	    /* Column reconfiguration. */
-	    for (i = 1; i < ncols; i++) {
-		if (colypos[0] < colypos[i])
-		    colypos[0] = colypos[i];
-	    }
-	    ncols = child->ncols;
-	    colypos = g_renew(gint, colypos, ncols);
-	    for (i = 1; i < ncols; i++)
-		colypos[i] = colypos[0];
-	    continue;
-	}
+        if (!child->widget) {
+            /* Column reconfiguration. */
+            for (i = 1; i < ncols; i++) {
+                if (colypos[0] < colypos[i])
+                    colypos[0] = colypos[i];
+            }
+            ncols = child->ncols;
+            colypos = g_renew(gint, colypos, ncols);
+            for (i = 1; i < ncols; i++)
+                colypos[i] = colypos[0];
+            continue;
+        }
 
         /* Only take visible widgets into account. */
         if (!gtk_widget_get_visible(child->widget))
@@ -787,7 +833,7 @@ static gint columns_compute_height(Columns *cols, widget_dim_fn_t get_height)
             if (childheight < childheight2)
                 childheight = childheight2;
         }
-	colspan = child->colspan ? child->colspan : ncols-child->colstart;
+        colspan = child->colspan ? child->colspan : ncols-child->colstart;
 
         /*
          * To compute height: the widget's top will be positioned at
@@ -837,18 +883,18 @@ static void columns_alloc_vert(Columns *cols, gint ourheight,
     for (children = cols->children;
          children && (child = children->data);
          children = children->next) {
-	if (!child->widget) {
-	    /* Column reconfiguration. */
-	    for (i = 1; i < ncols; i++) {
-		if (colypos[0] < colypos[i])
-		    colypos[0] = colypos[i];
-	    }
-	    ncols = child->ncols;
-	    colypos = g_renew(gint, colypos, ncols);
-	    for (i = 1; i < ncols; i++)
-		colypos[i] = colypos[0];
-	    continue;
-	}
+        if (!child->widget) {
+            /* Column reconfiguration. */
+            for (i = 1; i < ncols; i++) {
+                if (colypos[0] < colypos[i])
+                    colypos[0] = colypos[i];
+            }
+            ncols = child->ncols;
+            colypos = g_renew(gint, colypos, ncols);
+            for (i = 1; i < ncols; i++)
+                colypos[i] = colypos[0];
+            continue;
+        }
 
         /* Only take visible widgets into account. */
         if (!gtk_widget_get_visible(child->widget))
@@ -860,7 +906,7 @@ static void columns_alloc_vert(Columns *cols, gint ourheight,
             if (fakeheight < childheight2)
                 fakeheight = childheight2;
         }
-	colspan = child->colspan ? child->colspan : ncols-child->colstart;
+        colspan = child->colspan ? child->colspan : ncols-child->colstart;
 
         /*
          * To compute height: the widget's top will be positioned
@@ -886,7 +932,7 @@ static void columns_alloc_vert(Columns *cols, gint ourheight,
         }
     }
 
-    g_free(colypos);    
+    g_free(colypos);
 }
 
 /*

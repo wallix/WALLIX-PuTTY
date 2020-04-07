@@ -69,12 +69,12 @@ struct interval {
 };
 
 /* auxiliary function for binary search in interval table */
-static int bisearch(unsigned int ucs, const struct interval *table, int max) {
+static bool bisearch(unsigned int ucs, const struct interval *table, int max) {
   int min = 0;
   int mid;
 
   if (ucs < table[0].first || ucs > table[max].last)
-    return 0;
+    return false;
   while (max >= min) {
     mid = (min + max) / 2;
     if (ucs > table[mid].last)
@@ -82,10 +82,10 @@ static int bisearch(unsigned int ucs, const struct interval *table, int max) {
     else if (ucs < table[mid].first)
       max = mid - 1;
     else
-      return 1;
+      return true;
   }
 
-  return 0;
+  return false;
 }
 
 
@@ -298,7 +298,7 @@ int mk_wcwidth(unsigned int ucs)
 
   /* binary search in table of non-spacing characters */
   if (bisearch(ucs, combining,
-	       sizeof(combining) / sizeof(struct interval) - 1))
+               sizeof(combining) / sizeof(struct interval) - 1))
     return 0;
 
   /* if we arrive here, ucs is not a combining or C0/C1 control character */
@@ -527,7 +527,7 @@ int mk_wcwidth_cjk(unsigned int ucs)
 
   /* binary search in table of non-spacing characters */
   if (bisearch(ucs, ambiguous,
-	       sizeof(ambiguous) / sizeof(struct interval) - 1))
+               sizeof(ambiguous) / sizeof(struct interval) - 1))
     return 2;
 
   return mk_wcwidth(ucs);

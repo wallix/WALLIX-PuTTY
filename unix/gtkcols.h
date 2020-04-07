@@ -28,8 +28,8 @@ typedef struct ColumnsChild_tag ColumnsChild;
 struct Columns_tag {
     GtkContainer container;
     /* private after here */
-    GList *children;		       /* this holds ColumnsChild structures */
-    GList *taborder;		       /* this just holds GtkWidgets */
+    GList *children;                   /* this holds ColumnsChild structures */
+    GList *taborder;                   /* this just holds GtkWidgets */
     gint spacing;
 };
 
@@ -41,7 +41,7 @@ struct ColumnsChild_tag {
     /* If `widget' is non-NULL, this entry represents an actual widget. */
     GtkWidget *widget;
     gint colstart, colspan;
-    gboolean force_left;	       /* for recalcitrant GtkLabels */
+    bool force_left;                  /* for recalcitrant GtkLabels */
     ColumnsChild *same_height_as;
     /* Otherwise, this entry represents a change in the column setup. */
     gint ncols;

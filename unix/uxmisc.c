@@ -58,12 +58,12 @@ const char *filename_to_str(const Filename *fn)
     return fn->path;
 }
 
-int filename_equal(const Filename *f1, const Filename *f2)
+bool filename_equal(const Filename *f1, const Filename *f2)
 {
     return !strcmp(f1->path, f2->path);
 }
 
-int filename_is_null(const Filename *fn)
+bool filename_is_null(const Filename *fn)
 {
     return !fn->path[0];
 }
@@ -74,25 +74,13 @@ void filename_free(Filename *fn)
     sfree(fn);
 }
 
-int filename_serialise(const Filename *f, void *vdata)
+void filename_serialise(BinarySink *bs, const Filename *f)
 {
-    char *data = (char *)vdata;
-    int len = strlen(f->path) + 1;     /* include trailing NUL */
-    if (data) {
-        strcpy(data, f->path);
-    }
-    return len;
+    put_asciz(bs, f->path);
 }
-Filename *filename_deserialise(void *vdata, int maxsize, int *used)
+Filename *filename_deserialise(BinarySource *src)
 {
-    char *data = (char *)vdata;
-    char *end;
-    end = memchr(data, '\0', maxsize);
-    if (!end)
-        return NULL;
-    end++;
-    *used = end - data;
-    return filename_from_str(data);
+    return filename_from_str(get_asciz(src));
 }
 
 char filename_char_sanitise(char c)
@@ -108,7 +96,7 @@ static FILE *debug_fp = NULL;
 void dputs(const char *buf)
 {
     if (!debug_fp) {
-	debug_fp = fopen("debug.log", "w");
+        debug_fp = fopen("debug.log", "w");
     }
 
     if (write(1, buf, strlen(buf)) < 0) {} /* 'error check' to placate gcc */
@@ -131,29 +119,33 @@ char *get_username(void)
      * coping correctly with people who have su'ed.
      */
     user = getlogin();
+#if HAVE_SETPWENT
     setpwent();
+#endif
     if (user)
-	p = getpwnam(user);
+        p = getpwnam(user);
     else
-	p = NULL;
+        p = NULL;
     if (p && p->pw_uid == uid) {
-	/*
-	 * The result of getlogin() really does correspond to
-	 * our uid. Fine.
-	 */
-	ret = user;
+        /*
+         * The result of getlogin() really does correspond to
+         * our uid. Fine.
+         */
+        ret = user;
     } else {
-	/*
-	 * If that didn't work, for whatever reason, we'll do
-	 * the simpler version: look up our uid in the password
-	 * file and map it straight to a name.
-	 */
-	p = getpwuid(uid);
-	if (!p)
-	    return NULL;
-	ret = p->pw_name;
+        /*
+         * If that didn't work, for whatever reason, we'll do
+         * the simpler version: look up our uid in the password
+         * file and map it straight to a name.
+         */
+        p = getpwuid(uid);
+        if (!p)
+            return NULL;
+        ret = p->pw_name;
     }
+#if HAVE_ENDPWENT
     endpwent();
+#endif
 
     return dupstr(ret);
 }
@@ -166,16 +158,16 @@ char *get_username(void)
 void pgp_fingerprints(void)
 {
     fputs("These are the fingerprints of the PuTTY PGP Master Keys. They can\n"
-	  "be used to establish a trust path from this executable to another\n"
-	  "one. See the manual for more information.\n"
-	  "(Note: these fingerprints have nothing to do with SSH!)\n"
-	  "\n"
-	  "PuTTY Master Key as of 2015 (RSA, 4096-bit):\n"
-	  "  " PGP_MASTER_KEY_FP "\n\n"
-	  "Original PuTTY Master Key (RSA, 1024-bit):\n"
-	  "  " PGP_RSA_MASTER_KEY_FP "\n"
-	  "Original PuTTY Master Key (DSA, 1024-bit):\n"
-	  "  " PGP_DSA_MASTER_KEY_FP "\n", stdout);
+          "be used to establish a trust path from this executable to another\n"
+          "one. See the manual for more information.\n"
+          "(Note: these fingerprints have nothing to do with SSH!)\n"
+          "\n"
+          "PuTTY Master Key as of " PGP_MASTER_KEY_YEAR
+          " (" PGP_MASTER_KEY_DETAILS "):\n"
+          "  " PGP_MASTER_KEY_FP "\n\n"
+          "Previous Master Key (" PGP_PREV_MASTER_KEY_YEAR
+          ", " PGP_PREV_MASTER_KEY_DETAILS "):\n"
+          "  " PGP_PREV_MASTER_KEY_FP "\n", stdout);
 }
 
 /*
@@ -214,7 +206,7 @@ void noncloexec(int fd) {
         exit(1);
     }
 }
-int nonblock(int fd) {
+bool nonblock(int fd) {
     int fdflags;
 
     fdflags = fcntl(fd, F_GETFL);
@@ -229,7 +221,7 @@ int nonblock(int fd) {
 
     return fdflags & O_NONBLOCK;
 }
-int no_nonblock(int fd) {
+bool no_nonblock(int fd) {
     int fdflags;
 
     fdflags = fcntl(fd, F_GETFL);
@@ -245,18 +237,18 @@ int no_nonblock(int fd) {
     return fdflags & O_NONBLOCK;
 }
 
-FILE *f_open(const Filename *filename, char const *mode, int is_private)
+FILE *f_open(const Filename *filename, char const *mode, bool is_private)
 {
     if (!is_private) {
-	return fopen(filename->path, mode);
+        return fopen(filename->path, mode);
     } else {
-	int fd;
-	assert(mode[0] == 'w');	       /* is_private is meaningless for read,
-					  and tricky for append */
-	fd = open(filename->path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-	if (fd < 0)
-	    return NULL;
-	return fdopen(fd, mode);
+        int fd;
+        assert(mode[0] == 'w');        /* is_private is meaningless for read,
+                                          and tricky for append */
+        fd = open(filename->path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (fd < 0)
+            return NULL;
+        return fdopen(fd, mode);
     }
 }
 
@@ -275,21 +267,13 @@ void fontspec_free(FontSpec *f)
     sfree(f->name);
     sfree(f);
 }
-int fontspec_serialise(FontSpec *f, void *data)
+void fontspec_serialise(BinarySink *bs, FontSpec *f)
 {
-    int len = strlen(f->name);
-    if (data)
-        strcpy(data, f->name);
-    return len + 1;                    /* include trailing NUL */
+    put_asciz(bs, f->name);
 }
-FontSpec *fontspec_deserialise(void *vdata, int maxsize, int *used)
+FontSpec *fontspec_deserialise(BinarySource *src)
 {
-    char *data = (char *)vdata;
-    char *end = memchr(data, '\0', maxsize);
-    if (!end)
-        return NULL;
-    *used = end - data + 1;
-    return fontspec_new(data);
+    return fontspec_new(get_asciz(src));
 }
 
 char *make_dir_and_check_ours(const char *dirname)
@@ -348,4 +332,40 @@ char *make_dir_path(const char *path, mode_t mode)
             return NULL;
         pos += strspn(path + pos, "/");
     }
+}
+
+bool open_for_write_would_lose_data(const Filename *fn)
+{
+    struct stat st;
+
+    if (stat(fn->path, &st) < 0) {
+        /*
+         * If the file doesn't even exist, we obviously want to return
+         * false. If we failed to stat it for any other reason,
+         * ignoring the precise error code and returning false still
+         * doesn't seem too unreasonable, because then we'll try to
+         * open the file for writing and report _that_ error, which is
+         * likely to be more to the point.
+         */
+        return false;
+    }
+
+    /*
+     * OK, something exists at this pathname and we've found out
+     * something about it. But an open-for-write will only
+     * destructively truncate it if it's a regular file with nonzero
+     * size. If it's empty, or some other kind of special thing like a
+     * character device (e.g. /dev/tty) or a named pipe, then opening
+     * it for write is already non-destructive and it's pointless and
+     * annoying to warn about it just because the same file can be
+     * opened for reading. (Indeed, if it's a named pipe, opening it
+     * for reading actually _causes inconvenience_ in its own right,
+     * even before the question of whether it gives misleading
+     * information.)
+     */
+    if (S_ISREG(st.st_mode) && st.st_size > 0) {
+        return true;
+    }
+
+    return false;
 }

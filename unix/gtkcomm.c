@@ -82,23 +82,23 @@ gboolean fd_input_func(GIOChannel *source, GIOCondition condition,
      * marker.
      */
     if (condition & G_IO_PRI)
-        select_result(sourcefd, 4);
-    if (condition & G_IO_IN)
-        select_result(sourcefd, 1);
+        select_result(sourcefd, SELECT_X);
+    if (condition & (G_IO_IN | G_IO_HUP))
+        select_result(sourcefd, SELECT_R);
     if (condition & G_IO_OUT)
-        select_result(sourcefd, 2);
+        select_result(sourcefd, SELECT_W);
 
-    return TRUE;
+    return true;
 }
 #else
 void fd_input_func(gpointer data, gint sourcefd, GdkInputCondition condition)
 {
     if (condition & GDK_INPUT_EXCEPTION)
-        select_result(sourcefd, 4);
+        select_result(sourcefd, SELECT_X);
     if (condition & GDK_INPUT_READ)
-        select_result(sourcefd, 1);
+        select_result(sourcefd, SELECT_R);
     if (condition & GDK_INPUT_WRITE)
-        select_result(sourcefd, 2);
+        select_result(sourcefd, SELECT_W);
 }
 #endif
 
@@ -107,18 +107,18 @@ uxsel_id *uxsel_input_add(int fd, int rwx) {
 
 #if GTK_CHECK_VERSION(2,0,0)
     int flags = 0;
-    if (rwx & 1) flags |= G_IO_IN;
-    if (rwx & 2) flags |= G_IO_OUT;
-    if (rwx & 4) flags |= G_IO_PRI;
+    if (rwx & SELECT_R) flags |= G_IO_IN | G_IO_HUP;
+    if (rwx & SELECT_W) flags |= G_IO_OUT;
+    if (rwx & SELECT_X) flags |= G_IO_PRI;
     id->chan = g_io_channel_unix_new(fd);
     g_io_channel_set_encoding(id->chan, NULL, NULL);
     id->watch_id = g_io_add_watch_full(id->chan, GDK_PRIORITY_REDRAW+1, flags,
                                        fd_input_func, NULL, NULL);
 #else
     int flags = 0;
-    if (rwx & 1) flags |= GDK_INPUT_READ;
-    if (rwx & 2) flags |= GDK_INPUT_WRITE;
-    if (rwx & 4) flags |= GDK_INPUT_EXCEPTION;
+    if (rwx & SELECT_R) flags |= GDK_INPUT_READ;
+    if (rwx & SELECT_W) flags |= GDK_INPUT_WRITE;
+    if (rwx & SELECT_X) flags |= GDK_INPUT_EXCEPTION;
     assert(flags);
     id->id = gdk_input_add(fd, flags, fd_input_func, NULL);
 #endif
@@ -152,7 +152,7 @@ static gint timer_trigger(gpointer data)
      * Destroy the timer we got here on.
      */
     if (timer_id) {
-	g_source_remove(timer_id);
+        g_source_remove(timer_id);
         timer_id = 0;
     }
 
@@ -163,21 +163,21 @@ static gint timer_trigger(gpointer data)
      * still needs to be done, we do it ourselves.
      */
     if (run_timers(now, &next) && !timer_id) {
-	then = now;
-	now = GETTICKCOUNT();
-	if (now - then > next - then)
-	    ticks = 0;
-	else
-	    ticks = next - now;
-	timer_id = g_timeout_add(ticks, timer_trigger, LONG_TO_GPOINTER(next));
+        then = now;
+        now = GETTICKCOUNT();
+        if (now - then > next - then)
+            ticks = 0;
+        else
+            ticks = next - now;
+        timer_id = g_timeout_add(ticks, timer_trigger, LONG_TO_GPOINTER(next));
     }
 
     /*
-     * Returning FALSE means 'don't call this timer again', which
+     * Returning false means 'don't call this timer again', which
      * _should_ be redundant given that we removed it above, but just
-     * in case, return FALSE anyway.
+     * in case, return false anyway.
      */
-    return FALSE;
+    return false;
 }
 
 void timer_change_notify(unsigned long next)
@@ -185,11 +185,11 @@ void timer_change_notify(unsigned long next)
     long ticks;
 
     if (timer_id)
-	g_source_remove(timer_id);
+        g_source_remove(timer_id);
 
     ticks = next - GETTICKCOUNT();
     if (ticks <= 0)
-	ticks = 1;		       /* just in case */
+        ticks = 1;                     /* just in case */
 
     timer_id = g_timeout_add(ticks, timer_trigger, LONG_TO_GPOINTER(next));
 }
@@ -199,44 +199,13 @@ void timer_change_notify(unsigned long next)
  */
 
 static guint toplevel_callback_idle_id;
-static int idle_fn_scheduled;
+static bool idle_fn_scheduled;
 
 static void notify_toplevel_callback(void *);
 
-/*
- * Replacement code for the gtk_quit_add() function, which GTK2 - in
- * their unbounded wisdom - deprecated without providing any usable
- * replacement, and which we were using to ensure that our idle
- * function for toplevel callbacks was only run from the outermost
- * gtk_main().
- *
- * We must make sure that all our subsidiary calls to gtk_main() are
- * followed by a call to post_main(), so that the idle function can be
- * re-established when we end up back at the top level.
- */
-void post_main(void)
-{
-    if (gtk_main_level() == 1)
-        notify_toplevel_callback(NULL);
-}
-
 static gint idle_toplevel_callback_func(gpointer data)
 {
-    if (gtk_main_level() > 1) {
-        /*
-         * We don't run callbacks if we're in the middle of a
-         * subsidiary gtk_main. So unschedule this idle function; it
-         * will be rescheduled by post_main() when we come back up a
-         * level, which is the earliest we might actually do
-         * something.
-         */
-        if (idle_fn_scheduled) {      /* double-check, just in case */
-            g_source_remove(toplevel_callback_idle_id);
-            idle_fn_scheduled = FALSE;
-        }
-    } else {
-        run_toplevel_callbacks();
-    }
+    run_toplevel_callbacks();
 
     /*
      * If we've emptied our toplevel callback queue, unschedule
@@ -246,18 +215,18 @@ static gint idle_toplevel_callback_func(gpointer data)
      */
     if (!toplevel_callback_pending() && idle_fn_scheduled) {
         g_source_remove(toplevel_callback_idle_id);
-        idle_fn_scheduled = FALSE;
+        idle_fn_scheduled = false;
     }
 
-    return TRUE;
+    return true;
 }
 
-static void notify_toplevel_callback(void *frontend)
+static void notify_toplevel_callback(void *vctx)
 {
     if (!idle_fn_scheduled) {
         toplevel_callback_idle_id =
             g_idle_add(idle_toplevel_callback_func, NULL);
-        idle_fn_scheduled = TRUE;
+        idle_fn_scheduled = true;
     }
 }
 
