@@ -2072,9 +2072,19 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
     //CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     DWORD err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
     if (err < 32) {
-        CloseHandle(event);
-        free(szCmdline);
-        return err;
+        // Try to execute the file installed alongside putty.exe
+        err = GetModuleFileNameW(NULL, exeName, _countof(exeName));
+        if (err != 0) {
+            wchar_t* slash = wcsrchr(exeName, L'\\');
+            *(slash + 1) = L'\0';
+            wcscat(exeName, L"iploop.exe");
+            err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
+        }
+        if (err < 32) {
+            CloseHandle(event);
+            free(szCmdline);
+            return err;
+        }
     }
 
     ipl->exe = _wcsdup(exeName);
