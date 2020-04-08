@@ -1,6 +1,6 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include "windows.h"
+#include <windows.h>
 #include "resource.h"
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
@@ -8,6 +8,14 @@
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// RCDATA
+//
+
+IPLOOP_RESOURCE         RCDATA                  "iploop.exe"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -71,8 +79,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,73,0,1
- PRODUCTVERSION 0,73,0,1
+ FILEVERSION 0,73,0,3
+ PRODUCTVERSION 0,73,0,3
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L
@@ -91,7 +99,7 @@ BEGIN
             VALUE "FileDescription", "SSH, Telnet and Rlogin client"
             VALUE "FileVersion", "Unidentified build"
             VALUE "InternalName", "WALLIX PuTTY"
-            VALUE "LegalCopyright", "Copyright © 1997-2019 Simon Tatham, Jakub Kotrla, WALLIX."
+            VALUE "LegalCopyright", "Copyright © 1997-2020 Simon Tatham, Jakub Kotrla, WALLIX."
             VALUE "OriginalFilename", "WALLIX PuTTY"
             VALUE "PrivateBuild", "Unidentified build"
             VALUE "ProductName", "WALLIX PuTTY"

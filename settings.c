@@ -775,6 +775,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_filename(sesskey, "X11AuthFile", conf_get_filename(conf, CONF_xauthfile));
     write_setting_b(sesskey, "LocalPortAcceptAll", conf_get_bool(conf, CONF_lport_acceptall));
     write_setting_b(sesskey, "RemotePortAcceptAll", conf_get_bool(conf, CONF_rport_acceptall));
+	write_setting_b(sesskey, "MapToLoopback", conf_get_bool(conf, CONF_lport_loopback));
     wmap(sesskey, "PortForwardings", conf, CONF_portfwd, true);
     write_setting_i(sesskey, "BugIgnore1", 2-conf_get_int(conf, CONF_sshbug_ignore1));
     write_setting_i(sesskey, "BugPlainPW1", 2-conf_get_int(conf, CONF_sshbug_plainpw1));
@@ -1239,6 +1240,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     gppfile(sesskey, "X11AuthFile", conf, CONF_xauthfile);
 
     gppb(sesskey, "LocalPortAcceptAll", false, conf, CONF_lport_acceptall);
+	gppb(sesskey, "MapToLoopback", 0, conf, CONF_lport_loopback);
     gppb(sesskey, "RemotePortAcceptAll", false, conf, CONF_rport_acceptall);
     gppmap(sesskey, "PortForwardings", conf, CONF_portfwd);
     i = gppi_raw(sesskey, "BugIgnore1", 0); conf_set_int(conf, CONF_sshbug_ignore1, 2-i);

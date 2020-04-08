@@ -136,6 +136,9 @@ struct Ssh {
     char *deferred_abort_message;
 
     bool need_random_unref;
+
+	/* Handle for signaling IP Loopback manager that it can umap the addresses. */
+	struct iploop ipl;
 };
 
 
@@ -412,6 +415,10 @@ static void ssh_shutdown_internal(Ssh *ssh)
         ssh_ppl_free(ssh->base_layer);
         ssh->base_layer = NULL;
     }
+
+	if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
+		unmap_ip_from_loopback(&ssh->ipl);
+	}
 
     ssh->cl = NULL;
 }
@@ -898,6 +905,60 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
 
     random_ref(); /* do this now - may be needed by sharing setup code */
     ssh->need_random_unref = true;
+
+	/* Map IP to loopback if SSH tunnel flag set. */
+	if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
+		int nbAddr = 0;
+		char* key, *val, type;
+		char *loopback_addr[16];
+		for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
+			val != NULL;
+			val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
+			char* kp, *kp2, *vp, *vp2;
+			char address_family, type;
+			int sport, dport, sserv, dserv;
+			char* sports, *dports, *saddr, *host;
+
+			kp = key;
+
+			address_family = 'A';
+			type = 'L';
+			if (*kp == 'A' || *kp == '4' || *kp == '6')
+				address_family = *kp++;
+			if (*kp == 'L' || *kp == 'R')
+				type = *kp++;
+
+			if ((kp2 = host_strchr(kp, ':')) != NULL) {
+				/*
+				 * There's a colon in the middle of the source port
+				 * string, which means that the part before it is
+				 * actually a source address.
+				 */
+				char* saddr_tmp = dupprintf("%.*s", (int)(kp2 - kp), kp);
+				saddr = host_strduptrim(saddr_tmp);
+				sfree(saddr_tmp);
+			}
+			else {
+				saddr = NULL;
+			}
+
+			if (type == 'L') {
+				char* errmsg;
+				ULONG nteContext = 0;
+				if (nbAddr == 16) {
+					seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>16)");
+				}
+				if (nbAddr < 16) {
+					char* result;
+					loopback_addr[nbAddr++] = saddr;
+				}
+			}
+		}
+
+		if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr) != 0) {
+			seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
+		}
+	}
 
     p = connect_to_host(ssh, host, port, realhost, nodelay, keepalive);
     if (p != NULL) {

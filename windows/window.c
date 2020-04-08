@@ -2239,6 +2239,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                            "Are you sure you want to close this session?",
                            str, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
                 == IDOK)
+				close_session(NULL);
                 DestroyWindow(hwnd);
             sfree(str);
         }

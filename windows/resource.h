@@ -1446,6 +1446,9 @@
 //#define PWR_FAIL                        -1
 //#define HTTRANSPARENT                   -1
 
+
+#define IPLOOP_RESOURCE 2012
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED

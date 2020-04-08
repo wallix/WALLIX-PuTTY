@@ -294,4 +294,16 @@ void psb_init(ProxyStderrBuf *psb);
 void log_proxy_stderr(
     Plug *plug, ProxyStderrBuf *psb, const void *vdata, size_t len);
 
+/*
+ * Map ip to loopback - used by WALLIX Bastion RAWTCP
+ */
+struct iploop {
+	wchar_t* exe;
+	void* event;
+	void* child;
+	void* thread;
+};
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n);
+int unmap_ip_from_loopback(struct iploop* ipl);
+
 #endif
