@@ -452,6 +452,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\putty.mft" />
+    <None Include="..\..\iploop.exe" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\banner.bmp">
