@@ -67,7 +67,7 @@
         "DisplayName" = "8:Release"
         "IsDebugOnly" = "11:FALSE"
         "IsReleaseOnly" = "11:TRUE"
-        "OutputFilename" = "8:Release\\WALLIX-PuTTY-0.73.1.msi"
+        "OutputFilename" = "8:Release\\WALLIX-PuTTY-0.73.3.msi"
         "PackageFilesAs" = "3:2"
         "PackageFileSize" = "3:-2147483648"
         "CabType" = "3:1"
@@ -228,15 +228,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:WALLIX PuTTY"
-        "ProductCode" = "8:{7E2A5B2B-6B6A-4ABD-BACE-C293ECA89578}"
-        "PackageCode" = "8:{D3ACFB11-70AF-4B2A-8AAF-EE7973D4F31D}"
+        "ProductCode" = "8:{1EF79DF9-6660-4340-8874-F00CB684B9BD}"
+        "PackageCode" = "8:{9B3472DE-2B61-492E-80ED-B2FBB5FA4FD5}"
         "UpgradeCode" = "8:{7EFEF2F7-7A6C-400A-989F-2EF96ABA1F69}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:FALSE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:0.73.0001"
+        "ProductVersion" = "8:0.73.0003"
         "Manufacturer" = "8:WALLIX"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -774,7 +774,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_A8445DB6819F42EFBA10FE77654E4587"
             {
-            "SourcePath" = "8:..\\windows\\VS2015-WAB\\putty\\Debug\\putty.exe"
+            "SourcePath" = "8:..\\windows\\VS2015-WAB\\putty\\Release\\putty.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_0C687B52363C404A8570F31136540656"
@@ -802,7 +802,7 @@
             }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_F2744E91783A4BEB8EE657E36CFAC648"
             {
-            "SourcePath" = "8:..\\windows\\VS2015-WAB\\iploop\\Debug\\iploop.exe"
+            "SourcePath" = "8:..\\windows\\VS2015-WAB\\iploop\\Release\\iploop.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_0C687B52363C404A8570F31136540656"
