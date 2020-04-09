@@ -153,3 +153,5 @@
 /windows/*.msi
 /windows/*.wixobj
 /windows/*.wixpdb
+*.aps
+*.vcxproj.user

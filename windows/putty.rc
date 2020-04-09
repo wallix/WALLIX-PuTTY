@@ -14,7 +14,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // RCDATA
 //
 
-IPLOOP_RESOURCE         RCDATA                  "iploop.exe"
+IPLOOP_RESOURCE         RCDATA                  "VS2015-WAB\iploop\Release\iploop.exe"
 
 
 /////////////////////////////////////////////////////////////////////////////
