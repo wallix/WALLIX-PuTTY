@@ -1932,12 +1932,6 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		wcscat(szCmdline, tmpaddr);
 	}
 
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
-	STARTUPINFO si;
-	ZeroMemory(&si, sizeof(STARTUPINFO));
-	si.cb = sizeof(STARTUPINFO);
-
 	HANDLE event = CreateEventW(NULL, FALSE, FALSE, eventName);
 	if (event == NULL) {
 		return GetLastError();
