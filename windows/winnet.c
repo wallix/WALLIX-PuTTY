@@ -24,12 +24,22 @@
 #include <ws2ipdef.h>
 #include <iphlpapi.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #ifndef NO_IPV6
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
+
+#ifndef IN6ADDR_ANY_INIT
+#define IN6ADDR_ANY_INIT { 0 }
+#endif
+
+#ifndef IN6ADDR_LOOPBACK_INIT
+#define IN6ADDR_LOOPBACK_INIT { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 }
+#endif
+
 const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
 #ifdef __clang__
