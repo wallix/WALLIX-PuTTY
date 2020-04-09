@@ -301,7 +301,7 @@ struct iploop {
 	wchar_t* exe;
 	void* event;
 	void* child;
-	void* thread;
+//	void* thread;
 };
 int map_ip_to_loopback(struct iploop *ipl, char** addr, int n);
 int unmap_ip_from_loopback(struct iploop* ipl);

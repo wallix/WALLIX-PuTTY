@@ -1849,8 +1849,9 @@ int unmap_ip_from_loopback(struct iploop *ipl) {
 
 	if (ipl->child != NULL) {
 		CloseHandle(ipl->child);
-		CloseHandle(ipl->thread);
-		ipl->child = ipl->thread = NULL;
+//		CloseHandle(ipl->thread);
+//		ipl->child = ipl->thread = NULL;
+        ipl->child = NULL;
 	}
 
 	if (ipl->exe != NULL) {
@@ -1869,7 +1870,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 	ipl->exe = NULL;
 	ipl->event = NULL;
 	ipl->child = NULL;
-	ipl->thread = NULL;
+//	ipl->thread = NULL;
 
 	if (n < 1) {
 		return NO_ERROR;
@@ -1937,9 +1938,22 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		return GetLastError();
 	}
 
+    SHELLEXECUTEINFOW ShellExecuteInfoW;
+    
+    ZeroMemory(&ShellExecuteInfoW, sizeof(ShellExecuteInfoW));
+
+    ShellExecuteInfoW.cbSize       = sizeof(ShellExecuteInfoW);
+    ShellExecuteInfoW.fMask        = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+    ShellExecuteInfoW.lpVerb       = L"runas";
+    ShellExecuteInfoW.lpFile       = exeName;
+    ShellExecuteInfoW.lpParameters = szCmdline;
+    ShellExecuteInfoW.nShow        = SW_SHOWNA;
+
 	// Create the child process. 
 	//CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-	DWORD err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
+	//DWORD err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
+    ShellExecuteExW(&ShellExecuteInfoW);
+    DWORD err = ShellExecuteInfoW.hInstApp;
 	if (err < 32) {
 		// Try to execute the file installed alongside putty.exe
 		err = GetModuleFileNameW(NULL, exeName, _countof(exeName));
@@ -1958,8 +1972,8 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 
 	ipl->exe = _wcsdup(exeName);
 	ipl->event = event;
-	ipl->child = pi.hProcess;
-	ipl->thread = pi.hThread;
+	ipl->child = ShellExecuteInfoW.hProcess;
+//	ipl->thread = pi.hThread;
 
 	return NO_ERROR;
 }
