@@ -60,7 +60,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <StringPooling>true</StringPooling>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -311,6 +311,7 @@
   <ItemGroup>
     <None Include="..\..\iploop.exe" />
     <None Include="..\..\putty.mft" />
+    <None Include="..\iploop\Release\iploop.exe" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\banner.bmp" />

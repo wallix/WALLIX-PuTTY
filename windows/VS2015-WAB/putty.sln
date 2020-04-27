@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.1000
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29926.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pageant", "pageant\pageant.vcxproj", "{27E8F930-2567-4FDC-82C1-0662AF3CDF6D}"
 EndProject
@@ -11,6 +11,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "psftp", "psftp\psftp.vcxproj", "{3CAA8123-13FE-450D-BFE7-FCDA524D6830}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "putty", "putty\putty.vcxproj", "{8F44624A-D188-4188-B9AA-5F99F20723E1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CF99B676-C9B9-400C-876E-AA58EDA7593E} = {CF99B676-C9B9-400C-876E-AA58EDA7593E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "puttygen", "puttygen\puttygen.vcxproj", "{617B1BEF-AA10-42B4-8F69-4C183BC1EC0F}"
 EndProject

@@ -14,7 +14,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // RCDATA
 //
 
-IPLOOP_RESOURCE         RCDATA                  "VS2015-WAB\iploop\Release\iploop.exe"
+IPLOOP_RESOURCE         RCDATA                  "VS2015-WAB\\iploop\\Release\\iploop.exe"
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -79,8 +79,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,73,0,3
- PRODUCTVERSION 0,73,0,3
+ FILEVERSION 0,73,0,4
+ PRODUCTVERSION 0,73,0,4
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L

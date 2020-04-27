@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #define NEED_DECLARATION_OF_SELECT     /* in order to initialise it */
 
@@ -1926,16 +1927,19 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		CloseHandle(hFile);
 	}
 
-	size_t size = wcslen(exeName);
+    #define MAX_HOSTNAME 255
+
+	size_t size = wcslen(eventName);
 	for (int i = 0; i < n; i++) {
-		size += sizeof(wchar_t) + 2 * strlen(addr[i]);
+		size += 1 + /*strlen(addr[i])*/MAX_HOSTNAME;
 	}
+    size += 1;
 	wchar_t *szCmdline = (wchar_t *)malloc(size * sizeof(wchar_t));
 	wcscpy(szCmdline, eventName);
 	for (int i = 0; i < n; i++) {
 		wcscat(szCmdline, L" ");
-		wchar_t tmpaddr[64];
-		if (MultiByteToWideChar(CP_ACP, 0, addr[i], -1, tmpaddr, 24) == 0) {
+        wchar_t tmpaddr[MAX_HOSTNAME] = { 0 };
+		if (MultiByteToWideChar(CP_ACP, 0, addr[i], -1, tmpaddr, _countof(tmpaddr)) == 0) {
 			DWORD err = GetLastError();
 			free(szCmdline);
 			return err;
@@ -1984,6 +1988,8 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 	ipl->event = event;
 	ipl->child = ShellExecuteInfoW.hProcess;
 //	ipl->thread = pi.hThread;
+
+    free(szCmdline);
 
 	return NO_ERROR;
 }
