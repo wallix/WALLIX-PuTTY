@@ -1927,6 +1927,14 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		CloseHandle(hFile);
 	}
 
+    wchar_t dirName[MAX_PATH];
+    GetModuleFileNameW(NULL, dirName, _countof(dirName));
+    slash = wcsrchr(dirName, L'\\');
+    if (slash)
+    {
+        *slash = L'\0';
+    }
+
     #define MAX_HOSTNAME 255
 
 	size_t size = wcslen(eventName);
@@ -1961,6 +1969,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
     ShellExecuteInfoW.lpVerb       = L"runas";
     ShellExecuteInfoW.lpFile       = exeName;
     ShellExecuteInfoW.lpParameters = szCmdline;
+    ShellExecuteInfoW.lpDirectory  = dirName;
     ShellExecuteInfoW.nShow        = SW_SHOWNA;
 
 	// Create the child process. 
@@ -1972,10 +1981,11 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		// Try to execute the file installed alongside putty.exe
 		err = GetModuleFileNameW(NULL, exeName, _countof(exeName));
 		if (err != 0) {
-			wchar_t* slash = wcsrchr(exeName, L'\\');
+			slash = wcsrchr(exeName, L'\\');
 			*(slash + 1) = L'\0';
 			wcscat(exeName, L"iploop.exe");
-			err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
+            ShellExecuteExW(&ShellExecuteInfoW);
+			err = ShellExecuteInfoW.hInstApp;
 		}
 		if (err < 32) {
 			CloseHandle(event);
