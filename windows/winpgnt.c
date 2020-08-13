@@ -508,7 +508,7 @@ static void prompt_add_keyfile(void)
             char *dir = filelist;
             char *filewalker = filelist + strlen(dir) + 1;
             while (*filewalker != '\0') {
-                char *filename = dupcat(dir, "\\", filewalker, NULL);
+                char *filename = dupcat(dir, "\\", filewalker);
                 Filename *fn = filename_from_str(filename);
                 win_add_keyfile(fn);
                 filename_free(fn);
@@ -706,43 +706,52 @@ static BOOL AddTrayIcon(HWND hwnd)
     return res;
 }
 
+/* Update the saved-sessions menu. */
 /*
  * JK: rewritten to be able to load configuration from disk
  * as rewritten putty saves it there - http://jakub.kotrla.net/putty/
  */
 static void update_sessions(void)
 {
-        int num_entries;
-        HKEY hkey;
-        TCHAR buf[MAX_PATH + 128];
-        MENUITEMINFO mii;
+    int num_entries;
+    HKEY hkey;
+    TCHAR buf[MAX_PATH + 128];
+    MENUITEMINFO mii;
 
-        HANDLE hFile;
-        char* fileCont = NULL;
-        DWORD fileSize;
-        DWORD bytesRead;
-        char* p = NULL;
-        char* p2 = NULL;
-        char* pcBuf = NULL;
-        strbuf* sb;
+    HANDLE hFile;
+    char* fileCont = NULL;
+    DWORD fileSize;
+    DWORD bytesRead;
+    char* p = NULL;
+    char* p2 = NULL;
+    char* pcBuf = NULL;
+    strbuf* sb;
 
-        char sesspath[2 * MAX_PATH] = "\0";
-        char curdir[2 * MAX_PATH] = "\0";
-        char sessionsuffix[16] = "\0";
-        WIN32_FIND_DATA FindFileData;
-        int index_key, index_menu;
+    char sesspath[2 * MAX_PATH] = "\0";
+    char curdir[2 * MAX_PATH] = "\0";
+    char sessionsuffix[16] = "\0";
+    WIN32_FIND_DATA FindFileData;
+    strbuf *sb;
 
-        if (!putty_path) return;
+    char sesspath[2 * MAX_PATH] = "\0";
+    char curdir[2 * MAX_PATH] = "\0";
+    char sessionsuffix[16] = "\0";
+    WIN32_FIND_DATA FindFileData;
+    int index_key, index_menu;
 
-        /* clear old menu */
-        for (num_entries = GetMenuItemCount(session_menu);
-                num_entries > initial_menuitems_count;
-                num_entries--)
-                RemoveMenu(session_menu, 0, MF_BYPOSITION);
+    if (!putty_path)
+        return;
 
-        /* init for new menu */
-        index_key = 0;
-        index_menu = 0;
+    if(ERROR_SUCCESS != RegOpenKey(HKEY_CURRENT_USER, PUTTY_REGKEY, &hkey))
+        return;
+
+    for(num_entries = GetMenuItemCount(session_menu);
+        num_entries > initial_menuitems_count;
+        num_entries--)
+        RemoveMenu(session_menu, 0, MF_BYPOSITION);
+
+    index_key = 0;
+    index_menu = 0;
 
 
         /* JK:  save path/curdir */
@@ -946,23 +955,23 @@ static void update_sessions(void)
                 return;
         }
 
-        sb = strbuf_new();
-        while (ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
-                sb->len = 0;
-                unescape_registry_key(buf, sb);
+    sb = strbuf_new();
+    while(ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
+        if(strcmp(buf, PUTTY_DEFAULT) != 0) {
+            strbuf_clear(sb);
+            unescape_registry_key(buf, sb);
 
-                if (strcmp(buf, PUTTY_DEFAULT) != 0) {
-                        memset(&mii, 0, sizeof(mii));
-                        mii.cbSize = sizeof(mii);
-                        mii.fMask = MIIM_TYPE | MIIM_STATE | MIIM_ID;
-                        mii.fType = MFT_STRING;
-                        mii.fState = MFS_ENABLED;
-                        mii.wID = (index_menu * 16) + IDM_SESSIONS_BASE;
-                        /* JK: add [registry] mark */
-                        strbuf_catf(sb, " [registry]");
-                        mii.dwTypeData = sb->s;
-                        InsertMenuItem(session_menu, index_menu, true, &mii);
-                        index_menu++;
+            memset(&mii, 0, sizeof(mii));
+            mii.cbSize = sizeof(mii);
+            mii.fMask = MIIM_TYPE | MIIM_STATE | MIIM_ID;
+            mii.fType = MFT_STRING;
+            mii.fState = MFS_ENABLED;
+            mii.wID = (index_menu * 16) + IDM_SESSIONS_BASE;
+            /* JK: add [registry] mark */
+            strbuf_catf(sb, " [registry]");
+            mii.dwTypeData = sb->s;
+            InsertMenuItem(session_menu, index_menu, true, &mii);
+            index_menu++;
                 }
                 index_key++;
         }
@@ -1158,7 +1167,7 @@ static char *answer_filemapping_message(const char *mapname)
         mapsize = mbi.RegionSize;
     }
 #ifdef DEBUG_IPC
-    debug("region size = %zd\n", mapsize);
+    debug("region size = %"SIZEu"\n", mapsize);
 #endif
     if (mapsize < 5) {
         err = dupstr("mapping smaller than smallest possible request");
