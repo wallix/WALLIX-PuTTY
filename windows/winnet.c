@@ -1912,7 +1912,6 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 	ipl->exe = NULL;
 	ipl->event = NULL;
 	ipl->child = NULL;
-//	ipl->thread = NULL;
 
 	if (n < 1) {
 		return NO_ERROR;
@@ -1931,32 +1930,43 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 
 	BYTE* pExeResource = (BYTE*)LockResource(hGlbl);
 	if (pExeResource == NULL) {
-		return GetLastError();;
+		return GetLastError();
 	}
 
 	wchar_t tempDir[MAX_PATH + 1];
 	if (GetTempPathW(MAX_PATH + 1, tempDir) == 0) {
-		return GetLastError();;
-	}
-
-	wchar_t exeName[MAX_PATH + 1 + 4];
-	if (GetTempFileNameW(tempDir, L"ipl", GetCurrentProcessId(), exeName) == 0) {
 		return GetLastError();
 	}
 
-	wchar_t *slash = wcsrchr(exeName, L'\\');
+    wchar_t exeNameLocal[MAX_PATH + 1 + 4];
+    if (!GetModuleFileNameW(NULL, exeNameLocal, _countof(exeNameLocal))) {
+        return GetLastError();
+    }
+    wchar_t *slash = wcsrchr(exeNameLocal, L'\\');
+    *(slash + 1) = L'\0';
+    wcscat(exeNameLocal, L"iploop.exe");
+
+
+	wchar_t exeNameTemp[MAX_PATH + 1 + 4];
+	if (GetTempFileNameW(tempDir, L"ipl", GetCurrentProcessId(), exeNameTemp) == 0) {
+		return GetLastError();
+	}
+
+	slash = wcsrchr(exeNameTemp, L'\\');
 	wchar_t eventName[MAX_PATH];
-	_snwprintf(eventName, MAX_PATH, L"Local\\%s", slash != NULL ? slash + 1 : exeName);
+	_snwprintf(eventName, MAX_PATH, L"Local\\%s", slash != NULL ? slash + 1 : exeNameTemp);
 
-	wcscat(exeName, L".exe");
+	wcscat(exeNameTemp, L".exe");
 
-	HANDLE hFile = CreateFileW(exeName, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+/*
+	HANDLE hFile = CreateFileW(exeNameTemp, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile != INVALID_HANDLE_VALUE) {
 		DWORD bytesWritten = 0;
 		WriteFile(hFile, pExeResource, resSize, &bytesWritten, NULL);
 		CloseHandle(hFile);
 	}
+*/
 
     wchar_t dirName[MAX_PATH];
     GetModuleFileNameW(NULL, dirName, _countof(dirName));
@@ -1996,39 +2006,41 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
     ZeroMemory(&ShellExecuteInfoW, sizeof(ShellExecuteInfoW));
 
     ShellExecuteInfoW.cbSize       = sizeof(ShellExecuteInfoW);
-    ShellExecuteInfoW.fMask        = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+    ShellExecuteInfoW.fMask        = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
     ShellExecuteInfoW.lpVerb       = L"runas";
-    ShellExecuteInfoW.lpFile       = exeName;
+    // Try to execute the file installed alongside putty.exe
+    ShellExecuteInfoW.lpFile       = exeNameLocal;
     ShellExecuteInfoW.lpParameters = szCmdline;
     ShellExecuteInfoW.lpDirectory  = dirName;
     ShellExecuteInfoW.nShow        = SW_SHOWNA;
 
 	// Create the child process. 
-	//CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-	//DWORD err = ShellExecuteW(NULL, L"runas", exeName, szCmdline, NULL, SW_SHOWNA);
     ShellExecuteExW(&ShellExecuteInfoW);
     DWORD err = ShellExecuteInfoW.hInstApp;
 	if (err < 32) {
-		// Try to execute the file installed alongside putty.exe
-		err = GetModuleFileNameW(NULL, exeName, _countof(exeName));
-		if (err != 0) {
-			slash = wcsrchr(exeName, L'\\');
-			*(slash + 1) = L'\0';
-			wcscat(exeName, L"iploop.exe");
-            ShellExecuteExW(&ShellExecuteInfoW);
-			err = ShellExecuteInfoW.hInstApp;
-		}
-		if (err < 32) {
+        HANDLE hFile = CreateFileW(exeNameTemp, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) {
+            return GetLastError();
+        }
+        DWORD bytesWritten = 0;
+        WriteFile(hFile, pExeResource, resSize, &bytesWritten, NULL);
+        CloseHandle(hFile);
+
+        ipl->exe = _wcsdup(exeNameTemp);
+
+        ShellExecuteInfoW.lpFile = exeNameTemp;
+        ShellExecuteExW(&ShellExecuteInfoW);
+		err = ShellExecuteInfoW.hInstApp;
+
+        if (err < 32) {
 			CloseHandle(event);
 			free(szCmdline);
 			return err;
 		}
 	}
 
-	ipl->exe = _wcsdup(exeName);
 	ipl->event = event;
 	ipl->child = ShellExecuteInfoW.hProcess;
-//	ipl->thread = pi.hThread;
 
     free(szCmdline);
 
