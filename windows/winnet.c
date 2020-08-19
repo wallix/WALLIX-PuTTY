@@ -1258,11 +1258,43 @@ Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
              * specified one...
              */
             if (srcaddr) {
-                a.sin_addr.s_addr = p_inet_addr(srcaddr);
-                if (a.sin_addr.s_addr != INADDR_NONE) {
-                    /* Override localhost_only with specified listen addr. */
-                    ret->localhost_only = ipv4_is_loopback(a.sin_addr);
-                    got_addr = true;
+                /* WALLIX: DNS resolution - used by Bastion RAWTCP */
+                if (p_getaddrinfo) {
+                    struct addrinfo hints;
+                    struct addrinfo *ai;
+                    int err;
+
+                    memset(&hints, 0, sizeof(hints));
+                    hints.ai_family = AF_INET;
+                    hints.ai_flags = 0;
+                    {
+                        /* strip [] on IPv6 address literals */
+                        char *trimmed_addr = host_strduptrim(srcaddr);
+                        err = p_getaddrinfo(trimmed_addr, NULL, &hints, &ai);
+                        sfree(trimmed_addr);
+                    }
+                    if (err == 0 && ai->ai_family == AF_INET) {
+                        a.sin_addr.s_addr =
+                            ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr;
+                        if (a.sin_addr.s_addr != INADDR_NONE) {
+                            /* Override localhost_only with specified listen addr. */
+                            ret->localhost_only = ipv4_is_loopback(a.sin_addr);
+                            got_addr = true;
+                        }
+                    }
+                }
+
+                /* WALLIX: DNS resolution - used by Bastion RAWTCP */
+                if (!got_addr) {
+
+                    a.sin_addr.s_addr = p_inet_addr(srcaddr);
+                    if (a.sin_addr.s_addr != INADDR_NONE) {
+                        /* Override localhost_only with specified listen addr. */
+                        ret->localhost_only = ipv4_is_loopback(a.sin_addr);
+                        got_addr = true;
+                    }
+
+                /* WALLIX: DNS resolution - used by Bastion RAWTCP */
                 }
             }
 
