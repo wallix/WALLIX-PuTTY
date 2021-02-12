@@ -510,13 +510,13 @@ Socket *new_connection(SockAddr *addr, const char *hostname,
 }
 
 Socket *new_listener(const char *srcaddr, int port, Plug *plug,
-                     bool local_host_only, Conf *conf, int addressfamily)
+                     bool local_host_only, bool map_to_loopback, Conf *conf, int addressfamily)
 {
     /* TODO: SOCKS (and potentially others) support inbound
      * TODO: connections via the proxy. support them.
      */
 
-    return sk_newlistener(srcaddr, port, plug, local_host_only, addressfamily);
+    return sk_newlistener(srcaddr, port, plug, local_host_only, map_to_loopback, addressfamily);
 }
 
 /* ----------------------------------------------------------------------

@@ -1145,7 +1145,7 @@ Socket *sk_new(SockAddr *addr, int port, bool privport, bool oobinline,
 }
 
 Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
-                       bool local_host_only, int orig_address_family)
+                       bool local_host_only, bool map_to_loopback, int orig_address_family)
 {
     SOCKET s;
 #ifndef NO_IPV6
@@ -1253,34 +1253,44 @@ Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
             bool got_addr = false;
             a.sin_family = AF_INET;
 
+
             /*
              * Bind to source address. First try an explicitly
              * specified one...
              */
             if (srcaddr) {
                 /* WALLIX: DNS resolution - used by Bastion RAWTCP */
-                if (p_getaddrinfo) {
+                if (p_getaddrinfo && p_freeaddrinfo) {
                     struct addrinfo hints;
                     struct addrinfo *ai;
                     int err;
 
                     memset(&hints, 0, sizeof(hints));
                     hints.ai_family = AF_INET;
-                    hints.ai_flags = 0;
+                    hints.ai_socktype = SOCK_STREAM;
+                    hints.ai_protocol = IPPROTO_TCP;
                     {
                         /* strip [] on IPv6 address literals */
                         char *trimmed_addr = host_strduptrim(srcaddr);
                         err = p_getaddrinfo(trimmed_addr, NULL, &hints, &ai);
                         sfree(trimmed_addr);
                     }
-                    if (err == 0 && ai->ai_family == AF_INET) {
+                    if (err == 0/* && ai->ai_family == AF_INET*/) {
                         a.sin_addr.s_addr =
                             ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr;
+
                         if (a.sin_addr.s_addr != INADDR_NONE) {
                             /* Override localhost_only with specified listen addr. */
                             ret->localhost_only = ipv4_is_loopback(a.sin_addr);
                             got_addr = true;
                         }
+
+                        p_freeaddrinfo(ai);
+                    }
+                    else if (map_to_loopback) {
+                        p_closesocket(s);
+                        ret->error = winsock_error_string(err);
+                        return &ret->sock;
                     }
                 }
 
@@ -1356,7 +1366,7 @@ Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
      */
     if (address_family == AF_INET && orig_address_family == ADDRTYPE_UNSPEC) {
         Socket *other = sk_newlistener(srcaddr, port, plug,
-                                       local_host_only, ADDRTYPE_IPV6);
+                                       local_host_only, map_to_loopback, ADDRTYPE_IPV6);
 
         if (other) {
             NetSocket *ns = container_of(other, NetSocket, sock);

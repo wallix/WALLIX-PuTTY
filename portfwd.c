@@ -589,6 +589,7 @@ static char *pfl_listen(const char *desthost, int destport,
 
     pl->s = new_listener(srcaddr, port, &pl->plug,
                          !conf_get_bool(conf, CONF_lport_acceptall),
+                         conf_get_bool(conf, CONF_lport_loopback),
                          conf, address_family);
     if ((err = sk_socket_error(pl->s)) != NULL) {
         char *err_ret = dupstr(err);
