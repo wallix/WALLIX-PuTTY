@@ -79,8 +79,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,74,0,1
- PRODUCTVERSION 0,74,0,1
+ FILEVERSION 0,74,0,2
+ PRODUCTVERSION 0,74,0,2
  FILEFLAGSMASK 0xbL
 #ifdef _DEBUG
  FILEFLAGS 0x9L
@@ -97,13 +97,13 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WALLIX"
             VALUE "FileDescription", "SSH, Telnet and Rlogin client"
-            VALUE "FileVersion", "Unidentified build"
+            VALUE "FileVersion", "0.74.0.2"
             VALUE "InternalName", "WALLIX PuTTY"
-            VALUE "LegalCopyright", "Copyright © 1997-2020 Simon Tatham, Jakub Kotrla, WALLIX."
+            VALUE "LegalCopyright", "Copyright © 1997-2021 Simon Tatham, Jakub Kotrla, WALLIX."
             VALUE "OriginalFilename", "WALLIX PuTTY"
-            VALUE "PrivateBuild", "Unidentified build"
+            VALUE "PrivateBuild", "0.74.0.2"
             VALUE "ProductName", "WALLIX PuTTY"
-            VALUE "ProductVersion", "Unidentified build"
+            VALUE "ProductVersion", "Release 0.74"
         END
     END
     BLOCK "VarFileInfo"
