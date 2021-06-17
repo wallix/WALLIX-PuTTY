@@ -304,7 +304,7 @@ struct iploop {
 	void* child;
 //	void* thread;
 };
-int map_ip_to_loopback(struct iploop *ipl, char** addr, int n);
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal);
 int unmap_ip_from_loopback(struct iploop* ipl);
 
 #endif

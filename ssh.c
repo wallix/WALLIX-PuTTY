@@ -880,6 +880,8 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
     const char *p;
     Ssh *ssh;
 
+	bool tia_portal = false;
+
     ssh = snew(Ssh);
     memset(ssh, 0, sizeof(Ssh));
 
@@ -929,6 +931,11 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
 				type = *kp++;
 
 			if ((kp2 = host_strchr(kp, ':')) != NULL) {
+				if (atoi(kp2 + 1) == 102)
+				{
+					tia_portal = true;
+				}
+
 				/*
 				 * There's a colon in the middle of the source port
 				 * string, which means that the part before it is
@@ -955,7 +962,7 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
 			}
 		}
 
-		if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr) != 0) {
+		if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr, tia_portal) != 0) {
 			seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
 		}
 	}

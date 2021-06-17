@@ -24,9 +24,24 @@
     <ClInclude Include="iploop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="unique.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="strutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sysutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iploop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strutils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sysutils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

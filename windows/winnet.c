@@ -1917,7 +1917,9 @@ int unmap_ip_from_loopback(struct iploop *ipl) {
 	return ret == FALSE;
 }
 
-int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) {
+
+    OutputDebugStringW(L"map_ip_to_loopback(): ...");
 
 	ipl->exe = NULL;
 	ipl->event = NULL;
@@ -1963,8 +1965,8 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 	}
 
 	slash = wcsrchr(exeNameTemp, L'\\');
-	wchar_t eventName[MAX_PATH];
-	_snwprintf(eventName, MAX_PATH, L"Local\\%s", slash != NULL ? slash + 1 : exeNameTemp);
+	wchar_t eventNameBase[MAX_PATH];
+	_snwprintf(eventNameBase, MAX_PATH, L"Local\\%s", slash != NULL ? slash + 1 : exeNameTemp);
 
 	wcscat(exeNameTemp, L".exe");
 
@@ -1988,13 +1990,17 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 
     #define MAX_HOSTNAME 255
 
-	size_t size = wcslen(eventName);
+	size_t size = wcslen(eventNameBase);
 	for (int i = 0; i < n; i++) {
 		size += 1 + /*strlen(addr[i])*/MAX_HOSTNAME;
 	}
     size += 1;
+	if (tia_portal)
+	{
+		size += 5;	// "/tia"
+	}
 	wchar_t *szCmdline = (wchar_t *)malloc(size * sizeof(wchar_t));
-	wcscpy(szCmdline, eventName);
+	wcscpy(szCmdline, eventNameBase);
 	for (int i = 0; i < n; i++) {
 		wcscat(szCmdline, L" ");
         wchar_t tmpaddr[MAX_HOSTNAME] = { 0 };
@@ -2006,9 +2012,26 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		wcscat(szCmdline, tmpaddr);
 	}
 
-	HANDLE event = CreateEventW(NULL, FALSE, FALSE, eventName);
-	if (event == NULL) {
-		return GetLastError();
+	if (tia_portal)
+	{
+		wcscat(szCmdline, L" /tia");
+	}
+
+    wchar_t eventNameI2P[MAX_PATH];
+    wcscpy(eventNameI2P, eventNameBase);
+    wcscat(eventNameI2P, L"-I2P");
+    HANDLE event_i2p = CreateEventW(NULL, FALSE, FALSE, eventNameI2P);
+    if (event_i2p == NULL) {
+        return GetLastError();
+    }
+
+    wchar_t eventNameP2I[MAX_PATH];
+    wcscpy(eventNameP2I, eventNameBase);
+    wcscat(eventNameP2I, L"-P2I");
+    HANDLE event_p2i = CreateEventW(NULL, FALSE, FALSE, eventNameP2I);
+	if (event_p2i == NULL) {
+        CloseHandle(event_i2p);
+        return GetLastError();
 	}
 
     SHELLEXECUTEINFOW ShellExecuteInfoW;
@@ -2030,6 +2053,8 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 	if (err < 32) {
         HANDLE hFile = CreateFileW(exeNameTemp, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (hFile == INVALID_HANDLE_VALUE) {
+            CloseHandle(event_i2p);
+            CloseHandle(event_p2i);
             return GetLastError();
         }
         DWORD bytesWritten = 0;
@@ -2043,16 +2068,43 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n) {
 		err = ShellExecuteInfoW.hInstApp;
 
         if (err < 32) {
-			CloseHandle(event);
-			free(szCmdline);
+            CloseHandle(event_i2p);
+            CloseHandle(event_p2i);
+            free(szCmdline);
 			return err;
 		}
 	}
 
-	ipl->event = event;
+    OutputDebugStringW(L"map_ip_to_loopback(): Wait for event (I2P) ...");
+
+    const DWORD dwWaitResult = WaitForSingleObject(event_i2p, 10000);
+    if (WAIT_OBJECT_0 == dwWaitResult)
+    {
+        OutputDebugStringW(L"map_ip_to_loopback(): Event (I2P) signaled.");
+    }
+    else if (WAIT_TIMEOUT == dwWaitResult)
+    {
+        OutputDebugStringW(L"map_ip_to_loopback(): Timeout when waiting for event (I2P)!");
+    }
+    else
+    {
+        wchar_t szDebugStringW[256];
+        _snwprintf(szDebugStringW, _countof(szDebugStringW),
+            L"map_ip_to_loopback(): "
+                L"Failed to wait for (I2P) event! "
+                L"WaitResult=0x%X LastError=0x%X",
+            dwWaitResult, GetLastError());
+        OutputDebugStringW(szDebugStringW);
+    }
+
+    CloseHandle(event_i2p);
+
+	ipl->event = event_p2i;
 	ipl->child = ShellExecuteInfoW.hProcess;
 
     free(szCmdline);
+
+    OutputDebugStringW(L"map_ip_to_loopback(): Done.");
 
 	return NO_ERROR;
 }
