@@ -790,6 +790,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         }
     }
 
+	OutputDebugStringW(L"wWinMain(): Command line parsed.");
+
     int nbContexts = 0;
     HANDLE heap = GetProcessHeap();
     if (NULL == heap) {
@@ -802,6 +804,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         return error(L"Cannot allocate NTE Contexts", GetLastError());
     }
 
+	OutputDebugStringW(L"wWinMain(): NTE Context allocated.");
+
     ADDRINFOW hints;
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -813,6 +817,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     if (wsaErr != 0) {
         return error(L"Winsock initialization failed", wsaErr);
     }
+
+	OutputDebugStringW(L"wWinMain(): Winsock initialized.");
 
     wchar_t eventNameI2P[MAX_PATH];
     wcscpy(eventNameI2P, eventNameBase);
@@ -831,6 +837,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         return error(L"Cannot access event (P2I)", GetLastError());
     }
 
+	OutputDebugStringW(L"wWinMain(): Event objects opened.");
 
     class ServiceGuard
     {
@@ -907,8 +914,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         {
             continue;
         }
-        else
+        else if (service_guard_sp)
         {
+			OutputDebugStringW(L"wWinMain(): Generate WALLIX-PuTTY local address.");
+
             std::wstring strWALLIXPuTTYLocalAddressW = szArglist[i];
             strWALLIXPuTTYLocalAddressW += L":102";
 
@@ -920,7 +929,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                 char szDebugStringA[256];
                 _snprintf(szDebugStringA, _countof(szDebugStringA),
                     "wWinMain(): WALLIXPuTTYLocalAddress=\"%s\"",
-                    strWALLIXPuTTYLocalAddressA);
+                    strWALLIXPuTTYLocalAddressA.c_str());
                 OutputDebugStringA(szDebugStringA);
             }
         }
