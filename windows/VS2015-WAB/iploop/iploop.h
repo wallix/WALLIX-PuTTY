@@ -2,4 +2,23 @@
 
 #include "resource.h"
 
-int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
+
+
+//int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
+
+struct IPLoopThreadParameter
+{
+    std::wstring strEventNameBase;
+
+    std::vector<std::wstring> vecstrIPs;
+
+    bool bTiaPortalSupport = FALSE;
+
+    HANDLE hParentProcess = NULL;
+
+    DWORD dwGUIThreadId = 0;
+};
+
+DWORD WINAPI IPLoopThreadProc(void* lpParameter);
+
+void SendLogLine(LPCTSTR lpszFormat, ...);

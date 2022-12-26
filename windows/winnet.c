@@ -1999,7 +1999,11 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 	{
 		size += 5;	// "/tia"
 	}
-	wchar_t *szCmdline = (wchar_t *)malloc(size * sizeof(wchar_t));
+
+    wchar_t szParent[256];
+    swprintf(szParent, _countof(szParent), L" /parent %u", GetCurrentProcessId());
+
+	wchar_t *szCmdline = (wchar_t *)malloc((size + 256) * sizeof(wchar_t));
 	wcscpy(szCmdline, eventNameBase);
 	for (int i = 0; i < n; i++) {
 		wcscat(szCmdline, L" ");
@@ -2016,6 +2020,8 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 	{
 		wcscat(szCmdline, L" /tia");
 	}
+
+    wcscat(szCmdline, szParent);
 
     wchar_t eventNameI2P[MAX_PATH];
     wcscpy(eventNameI2P, eventNameBase);

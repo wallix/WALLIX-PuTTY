@@ -867,7 +867,7 @@ SYS_RUN_PROCESS_WITH_REDIRECTED_I_O_CLEAN_UP:
             L"SYSRunProcessWithRedirectedIO(): Done. "
                 L"Return hProcess=0x%X. "
                 L"LastError=\"%s\"(%u)",
-            shProcess.Get(),
+            reinterpret_cast<DWORD>(shProcess.Get()),
             static_cast<LPCWSTR>(SYSGetErrorMessageW(rdwLastError)),
             rdwLastError);
         OutputDebugStringW(szDebugStringW);
