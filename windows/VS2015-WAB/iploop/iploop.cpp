@@ -24,9 +24,12 @@ int const nIdEdit = 5;
 #define IDT_LOGLINES 10
 
 HWND hwndMainFrame = NULL;
+HWND hwndParent = NULL;
 
 CRITICAL_SECTION csLogLines;
-std::vector<std::wstring> vecstrLogLines;
+std::wstring strLogLines;
+
+std::wstring strParentWindowTitle;
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -34,10 +37,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
-//    UNREFERENCED_PARAMETER(lpCmdLine);
-
 
     // TODO: Place code here.
+    OutputDebugString(lpCmdLine);
 
     // Initialize global strings
     LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -49,7 +51,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
     if (nArgs < 2) {
-        MessageBox(NULL, _T("iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_id]"), szTitle, MB_ICONERROR | MB_OK);
+        MessageBox(NULL, _T("iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_id] [/window parent_wnd]"), szTitle, MB_ICONERROR | MB_OK);
         LocalFree(szArglistW);
         return FALSE;
     }
@@ -81,6 +83,24 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
             else
             {
                 MessageBox(NULL, _T("Please provide handle of parent process!"), szTitle, MB_ICONERROR | MB_OK);
+                LocalFree(szArglistW);
+                return FALSE;
+            }
+        }
+        else if (!lstrcmpi(szArglistW[i], _T("/window")))
+        {
+            if (i < nArgs - 1)
+            {
+                ++i;
+
+                std::wistringstream iss(szArglistW[i]);
+                DWORD dwParentWnd = 0;
+                iss >> dwParentWnd;
+                hwndParent = reinterpret_cast<HWND>(dwParentWnd);
+            }                
+            else
+            {
+                MessageBox(NULL, _T("Please provide handle of parent window!"), szTitle, MB_ICONERROR | MB_OK);
                 LocalFree(szArglistW);
                 return FALSE;
             }
@@ -166,8 +186,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hInstance      = hInstance;
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IPLOOP));
     wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(/*COLOR_WINDOW*/COLOR_3DFACE + 1);
-//  wcex.lpszMenuName   = MAKEINTRESOURCE(IDC_IPLOOP);
+    wcex.hbrBackground  = (HBRUSH)(COLOR_3DFACE + 1);
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_IPLOOP));
 
@@ -189,7 +208,7 @@ HWND InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    HWND const hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-       CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, NULL, hInstance, NULL);
+       CW_USEDEFAULT, CW_USEDEFAULT, 500, 300, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
    {
@@ -204,6 +223,7 @@ HWND InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    return hWnd;
 }
+
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -291,19 +311,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_TIMER:
         if (TryEnterCriticalSection(&csLogLines))
         {
-            HWND hwndEdit = GetDlgItem(hWnd, nIdEdit);
+            std::wstring strLogLinesTemp(std::move(strLogLines));
 
-            for (auto line : vecstrLogLines)
+            LeaveCriticalSection(&csLogLines);
+
+            HWND const hwndEdit = GetDlgItem(hWnd, nIdEdit);
+
+            if (!strLogLinesTemp.empty())
             {
                 int const nIndex = GetWindowTextLength(hwndEdit);
 
                 SendMessage(hwndEdit, EM_SETSEL, nIndex, nIndex);
-                SendMessage(hwndEdit, EM_REPLACESEL, 0, (LPARAM)line.c_str());
+                SendMessage(hwndEdit, EM_REPLACESEL, 0, (LPARAM)strLogLinesTemp.c_str());
+
+                SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
             }
+        }
 
-            vecstrLogLines.clear();
+        if (hwndParent)
+        {
+            TCHAR szParentWindowTitle[512];
+            GetWindowText(hwndParent, szParentWindowTitle, _countof(szParentWindowTitle));
 
-            LeaveCriticalSection(&csLogLines);
+            if (strParentWindowTitle.compare(szParentWindowTitle))
+            {
+                std::wstring strWindowTitle { szTitle };
+
+                strWindowTitle.append(_T(" - "));
+                strWindowTitle.append(szParentWindowTitle);
+
+                SetWindowText(hWnd, strWindowTitle.c_str());
+
+                strParentWindowTitle = szParentWindowTitle;
+            }
         }
         break;
 
@@ -348,8 +388,9 @@ void SendLogLine(LPCTSTR lpszFormat, ...)
 
     EnterCriticalSection(&csLogLines);
 
-    vecstrLogLines.emplace_back(szLogLine);
-    OutputDebugString(szLogLine);
+    strLogLines.append(szLogLine);
 
     LeaveCriticalSection(&csLogLines);
+
+    OutputDebugString(szLogLine);
 }

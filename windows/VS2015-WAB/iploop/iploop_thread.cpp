@@ -74,13 +74,13 @@ public:
 
     void CheckResult()
     {
-        ::/*OutputDebugStringW*/SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ..."));
+        ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ..."));
 
         if (!IsInProgress())
         {
             assert(false);
 
-            ::/*OutputDebugStringW*/SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
+            ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
                 _T("The checker is not in-progress! Return"));
 
             return;
@@ -88,7 +88,7 @@ public:
 
         if (WAIT_OBJECT_0 == ::WaitForSingleObject(m_shProcess.Get(), 0))
         {
-            ::/*OutputDebugStringW*/SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
+            ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
                 _T("The process object is signaled."));
 
             char szOutputData[32768];
@@ -108,21 +108,18 @@ public:
                     ParseResult(szOutputData);
                 else    // if (dwNumberOfBytesRead < dwNumberOfBytesToRead)
                 {
-                    ::/*OutputDebugStringW*/SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
+                    ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
                         _T("The data area passed to a system call is too small! (STDOUT)"));
                 }   // if (dwNumberOfBytesRead < dwNumberOfBytesToRead)
             }
             else    // if (::ReadFile(m_shStdOutRead.Get(), szOutputData,
             {
                 DWORD const dwLastError = ::GetLastError();
-                wchar_t szDebugString[256];
-                ::_sntprintf(szDebugString, _countof(szDebugString),
-                    _T("ListeningPortPresenceChecker::CheckResult(): ")
+                ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
                         _T("Failed to read anonymous pipe! (STDOUT)")
                         _T("LastError=\"%s\"(%u)"),
                     static_cast<LPCTSTR>(::SYSGetErrorMessageW(dwLastError)),
                     dwLastError);
-                /*OutputDebugStringW*/SendLogLine(szDebugString);
             }   // if (::ReadFile(m_shStdOutRead.Get(), szOutputData,
 
             m_shProcess.Reset();
@@ -135,21 +132,15 @@ public:
             m_shStdErrWrite.Reset();
         }   // if (WAIT_OBJECT_0 == ::WaitForSingleObject(m_shProcess.Get(), 0))
 
-        {
-            wchar_t szDebugStringW[256];
-            ::_snwprintf(szDebugStringW, _countof(szDebugStringW),
-                L"ListeningPortPresenceChecker::CheckResult(): Done. "
-                    L"AlwaysInProgress=%s",
-                (IsInProgress() ? L"yes" : L"no"));
-            ::/*OutputDebugStringW*/SendLogLine(szDebugStringW);
-        }
+        ::SendLogLine(L"ListeningPortPresenceChecker::CheckResult(): Done. "
+            L"AlwaysInProgress=%s",
+            (IsInProgress() ? L"yes" : L"no"));
     }
 
 private:
     void ParseResult(LPCSTR lpszResultA)
     {
-        ::/*OutputDebugStringW*/SendLogLine(
-            _T("ListeningPortPresenceChecker::ParseResult(): ..."));
+        ::SendLogLine(_T("ListeningPortPresenceChecker::ParseResult(): ..."));
 
         std::istringstream issA(lpszResultA);
 
@@ -168,32 +159,22 @@ private:
                 !::_stricmp(m_strLocalAddressA.c_str(), vstringsA[1].c_str()) &&
                 !::_stricmp("LISTENING", vstringsA[3].c_str()))
             {
-                ::/*OutputDebugStringW*/SendLogLine(
+                ::SendLogLine(
                     _T("ListeningPortPresenceChecker::ParseResult(): ")
                         _T("Listening address/port is found."));
 
                 DWORD pid = ::atoi(vstringsA[4].c_str());
 
-                {
-                    wchar_t szDebugStringW[256];
-                    ::_snwprintf(szDebugStringW, _countof(szDebugStringW),
-                        L"ListeningPortPresenceChecker::ParseResult(): "
-                            L"PID=%u",
-                        pid);
-                    ::/*OutputDebugStringW*/SendLogLine(szDebugStringW);
-                }
+                ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): "
+                    L"PID=%u",
+                    pid);
 
                 std::wstring strNameW;
                 if (::SYSGetProcessNameByIdW(strNameW, pid))
                 {
-                    {
-                        wchar_t szDebugStringW[256];
-                        ::_snwprintf(szDebugStringW, _countof(szDebugStringW),
-                            L"ListeningPortPresenceChecker::ParseResult(): "
-                                L"ProcessName=\"%s\"",
-                            strNameW.c_str());
-                        ::/*OutputDebugStringW*/SendLogLine(szDebugStringW);
-                    }
+                    ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): "
+                        L"ProcessName=\"%s\"",
+                        strNameW.c_str());
 
                     if (!::lstrcmpiW(strNameW.c_str(), L"svchost.exe"))
                     {
@@ -205,27 +186,21 @@ private:
             }
         }
 
-        {
-            wchar_t szDebugStringW[256];
-            ::_snwprintf(szDebugStringW, _countof(szDebugStringW),
-                L"ListeningPortPresenceChecker::ParseResult(): Done. "
-                    L"ListeningPortFound=%s",
-                (m_bListeningPortFound ? L"yes" : L"no"));
-            ::/*OutputDebugStringW*/SendLogLine(szDebugStringW);
-        }
+        ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): Done. "
+            L"ListeningPortFound=%s",
+            (m_bListeningPortFound ? L"yes" : L"no"));
     }
 
 public:
     void Start()
     {
-        ::/*OutputDebugStringW*/SendLogLine(
-            _T("ListeningPortPresenceChecker::Start(): ..."));
+        ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): ..."));
 
         if (IsInProgress())
         {
             assert(false);
 
-            /*OutputDebugStringW*/SendLogLine(_T("ListeningPortPresenceChecker::Start(): ")
+            ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): ")
                     _T("The task is already in-progress! Return"));
 
             return;
@@ -236,14 +211,9 @@ public:
             L"NETSTAT.EXE -ano -p tcp";
         LPCWSTR      lpszCurrentDirectoryW = nullptr;
 
-        {
-            wchar_t szDebugStringW[256];
-            _snwprintf(szDebugStringW, _countof(szDebugStringW),
-                L"ListeningPortPresenceChecker::Start(): "
-                    L"CommandLine=\"%s\"",
-                strCommandLineW.c_str());
-            /*OutputDebugStringW*/SendLogLine(szDebugStringW);
-        }   // if (pLogger)
+        ::SendLogLine(L"ListeningPortPresenceChecker::Start(): "
+                L"CommandLine=\"%s\"",
+            strCommandLineW.c_str());
 
         DWORD dwProcessId = 0;
         DWORD dwLastError = ERROR_SUCCESS;
@@ -260,18 +230,14 @@ public:
             );
         if (!m_shProcess || (ERROR_SUCCESS != dwLastError))
         {
-            wchar_t szDebugStringW[256];
-            _snwprintf(szDebugStringW, _countof(szDebugStringW),
-                L"ListeningPortPresenceChecker::Start(): "
+            ::SendLogLine(L"ListeningPortPresenceChecker::Start(): "
                     L"Failed to create child process! "
                     L"LastError=\"%s\"(%u)",
                 static_cast<LPCWSTR>(::SYSGetErrorMessageW(dwLastError)),
                 dwLastError);
-            /*OutputDebugStringW*/SendLogLine(szDebugStringW);
         }   // if (!m_shProcess || (ERROR_SUCCESS != dwLastError))
 
-        ::/*OutputDebugStringW*/SendLogLine(
-            _T("ListeningPortPresenceChecker::Start(): Done."));
+        ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): Done."));
     }
 };
 
@@ -292,7 +258,7 @@ VOID __stdcall DoStartSvc()
 
     if (NULL == schSCManager)
     {
-        /*error*/SendLogLine(L"OpenSCManager failed (%d)", GetLastError());
+        SendLogLine(L"DoStartSvc(): OpenSCManager failed! LastError=0x%X", GetLastError());
         return;
     }
 
@@ -305,7 +271,7 @@ VOID __stdcall DoStartSvc()
 
     if (schService == NULL)
     {
-        /*error*/SendLogLine(L"OpenService failed (%d)", GetLastError());
+        SendLogLine(L"DoStartSvc(): OpenService failed! LastError=0x%X", GetLastError());
         CloseServiceHandle(schSCManager);
         return;
     }
@@ -319,7 +285,7 @@ VOID __stdcall DoStartSvc()
             sizeof(SERVICE_STATUS_PROCESS), // size of structure
             &dwBytesNeeded ) )              // size needed if buffer is too small
     {
-        /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+        SendLogLine(L"DoStartSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
         CloseServiceHandle(schService);
         CloseServiceHandle(schSCManager);
         return;
@@ -366,7 +332,7 @@ VOID __stdcall DoStartSvc()
                 sizeof(SERVICE_STATUS_PROCESS), // size of structure
                 &dwBytesNeeded ) )              // size needed if buffer is too small
         {
-            /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+            SendLogLine(L"DoStartSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
             CloseServiceHandle(schService);
             CloseServiceHandle(schSCManager);
             return;
@@ -383,7 +349,7 @@ VOID __stdcall DoStartSvc()
         {
             if(GetTickCount()-dwStartTickCount > ssStatus.dwWaitHint)
             {
-                /*error*/SendLogLine(L"Timeout waiting for service to stop", ERROR_SERVICE_REQUEST_TIMEOUT);
+                SendLogLine(L"DoStartSvc(): Timeout waiting for service to stop!");
                 CloseServiceHandle(schService);
                 CloseServiceHandle(schSCManager);
                 return;
@@ -398,12 +364,12 @@ VOID __stdcall DoStartSvc()
             0,           // number of arguments
             NULL) )      // no arguments
     {
-        /*error*/SendLogLine(L"StartService failed (%d)", GetLastError());
+        SendLogLine(L"DoStartSvc(): StartService failed! LastError=0x%X", GetLastError());
         CloseServiceHandle(schService);
         CloseServiceHandle(schSCManager);
         return;
     }
-//    else printf("Service start pending...\n");
+    else SendLogLine(L"DoStartSvc(): Service start pending...");
 
     // Check the status until the service is no longer start pending.
 
@@ -414,7 +380,7 @@ VOID __stdcall DoStartSvc()
             sizeof(SERVICE_STATUS_PROCESS), // size of structure
             &dwBytesNeeded ) )              // if buffer too small
     {
-        /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+        SendLogLine(L"DoStartSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
         CloseServiceHandle(schService);
         CloseServiceHandle(schSCManager);
         return;
@@ -449,7 +415,7 @@ VOID __stdcall DoStartSvc()
             sizeof(SERVICE_STATUS_PROCESS), // size of structure
             &dwBytesNeeded ) )              // if buffer too small
         {
-            /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+            SendLogLine(L"DoStartSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
             break;
         }
 
@@ -472,20 +438,18 @@ VOID __stdcall DoStartSvc()
 
     // Determine whether the service is running.
 
-/*
     if (ssStatus.dwCurrentState == SERVICE_RUNNING)
     {
-        printf("Service started successfully.\n");
+        SendLogLine(L"DoStartSvc(): Service started successfully.");
     }
     else
     {
-        printf("Service not started. \n");
-        printf("  Current State: %d\n", ssStatus.dwCurrentState);
-        printf("  Exit Code: %d\n", ssStatus.dwWin32ExitCode);
-        printf("  Check Point: %d\n", ssStatus.dwCheckPoint);
-        printf("  Wait Hint: %d\n", ssStatus.dwWaitHint);
+        SendLogLine(L"DoStartSvc(): Service not started!");
+        SendLogLine(L"DoStartSvc(): Current State: %d", ssStatus.dwCurrentState);
+        SendLogLine(L"DoStartSvc(): Exit Code: %d", ssStatus.dwWin32ExitCode);
+        SendLogLine(L"DoStartSvc(): Check Point: %d", ssStatus.dwCheckPoint);
+        SendLogLine(L"DoStartSvc(): Wait Hint: %d", ssStatus.dwWaitHint);
     }
-*/
 
     CloseServiceHandle(schService);
     CloseServiceHandle(schSCManager);
@@ -602,7 +566,7 @@ VOID __stdcall DoStopSvc()
 
     if (NULL == schSCManager)
     {
-        /*error*/SendLogLine(L"OpenSCManager failed (%d)", GetLastError());
+        SendLogLine(L"DoStopSvc(): OpenSCManager failed! LastError=0x%X", GetLastError());
         return;
     }
 
@@ -617,7 +581,7 @@ VOID __stdcall DoStopSvc()
 
     if (schService == NULL)
     {
-        /*error*/SendLogLine(L"OpenService failed (%d)", GetLastError());
+        SendLogLine(L"DoStopSvc(): OpenService failed! LastError=0x%X", GetLastError());
         CloseServiceHandle(schSCManager);
         return;
     }
@@ -631,7 +595,7 @@ VOID __stdcall DoStopSvc()
             sizeof(SERVICE_STATUS_PROCESS),
             &dwBytesNeeded ) )
     {
-        /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+        SendLogLine(L"DoStopSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
         goto stop_cleanup;
     }
 
@@ -664,7 +628,7 @@ VOID __stdcall DoStopSvc()
                  sizeof(SERVICE_STATUS_PROCESS),
                  &dwBytesNeeded ) )
         {
-            /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError());
+            SendLogLine(L"DoStopSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
             goto stop_cleanup;
         }
 
@@ -675,7 +639,7 @@ VOID __stdcall DoStopSvc()
 
         if ( GetTickCount() - dwStartTime > dwTimeout )
         {
-            /*error*/SendLogLine(L"Service stop timed out.", ERROR_SERVICE_REQUEST_TIMEOUT);
+            SendLogLine(L"DoStopSvc(): Service stop timed out!");
             goto stop_cleanup;
         }
     }
@@ -691,7 +655,7 @@ VOID __stdcall DoStopSvc()
             SERVICE_CONTROL_STOP,
             (LPSERVICE_STATUS) &ssp ) )
     {
-        /*error*/SendLogLine(L"ControlService failed (%d)", GetLastError() );
+        SendLogLine(L"DoStopSvc(): ControlService failed! LastError=0x%X", GetLastError());
         goto stop_cleanup;
     }
 
@@ -707,7 +671,7 @@ VOID __stdcall DoStopSvc()
                 sizeof(SERVICE_STATUS_PROCESS),
                 &dwBytesNeeded ) )
         {
-            /*error*/SendLogLine(L"QueryServiceStatusEx failed (%d)", GetLastError() );
+            SendLogLine(L"DoStopSvc(): QueryServiceStatusEx failed! LastError=0x%X", GetLastError());
             goto stop_cleanup;
         }
 
@@ -716,103 +680,40 @@ VOID __stdcall DoStopSvc()
 
         if ( GetTickCount() - dwStartTime > dwTimeout )
         {
-            /*error*/SendLogLine(L"Wait timed out", ERROR_SERVICE_REQUEST_TIMEOUT);
+            SendLogLine(L"DoStopSvc(): Wait timed out!");
             goto stop_cleanup;
         }
     }
-//    printf("Service stopped successfully\n");
+    SendLogLine(L"DoStopSvc(): Service stopped successfully.");
 
 stop_cleanup:
     CloseServiceHandle(schService);
     CloseServiceHandle(schSCManager);
 }
 
-/*
-int error(const wchar_t* message, DWORD code) {
-    PWSTR lpMsgBuf = NULL;
-    WCHAR buf[1024];
-    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0, NULL) > 0) {
-        _snwprintf(buf, 1024, L"%s: %s", message, (PWSTR)lpMsgBuf);
-    }
-    else {
-        wcsncpy(buf, message, 1024);
-    }
-    buf[1023] = '\0';
-
-    if (lpMsgBuf != NULL) {
-        LocalFree(lpMsgBuf);
-    }
-
-    MessageBox(NULL, buf, appname, MB_ICONERROR | MB_OK);
-
-    return 1;
-}
-*/
-
 void unmap(ULONG* nte, int n) {
     for (int i = 0; i < n; i++) {
         DWORD ret = DeleteIPAddress(nte[i]);
         if (ret != NO_ERROR) {
-            /*error*/SendLogLine(L"Cannot unmap address from loopback inerface", ret);
+            SendLogLine(L"unmap(): Cannot unmap address from loopback inerface (%d)", i);
         }
     }
 }
 
-//int WINAPI_wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR pCmdLine, int /*nCmdShow*/) {
 int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
-/*
-    {
-        wchar_t szDebugStringW[256];
-        _snwprintf(szDebugStringW, _countof(szDebugStringW),
-            L"wWinMain(): ... CommandLine=\"%s\"",
-            pCmdLine);
-        OutputDebugStringW(szDebugStringW);
-    }
-
-    int nArgs;
-    LPWSTR* szArglist = CommandLineToArgvW(pCmdLine, &nArgs);
-    if (NULL == szArglist) {
-        MessageBox(NULL, L"Cannot parse command line", appname, MB_ICONERROR | MB_OK);
-        return 1;
-    }
-    if (nArgs < 2) {
-        LocalFree(szArglist);
-        MessageBox(NULL, L"iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_handle]", appname, MB_ICONERROR | MB_OK);
-        return 1;
-    }
-
-    wchar_t* eventNameBase = szArglist[0];
-
-    bool tia_portal = false;
-    for (int i = 1; i < nArgs; i++) {
-        if (!lstrcmpiW(szArglist[i], L"/tia"))
-        {
-            OutputDebugStringW(L "wWinMain(): Enable TIA portal support.");
-
-            tia_portal = true;
-            break;
-        }
-    }
-
-	OutputDebugStringW(L"wWinMain(): Command line parsed.");
-*/
-
     int nbContexts = 0;
     HANDLE heap = GetProcessHeap();
     if (NULL == heap) {
-//        LocalFree(szArglist);
-        /*return error*/SendLogLine(L"wWinMain(): Cannot get process heap", GetLastError());
+        SendLogLine(L"IPLoopMain(): Cannot get process heap! LastError=0x%X", GetLastError());
         return 1;
     }
-    ULONG* NTEContexts = (ULONG*)HeapAlloc(heap, HEAP_GENERATE_EXCEPTIONS, sizeof(ULONG) * /*(nArgs - 1)*/lpThreadParameters->vecstrIPs.size());
+    ULONG* NTEContexts = (ULONG*)HeapAlloc(heap, HEAP_GENERATE_EXCEPTIONS, sizeof(ULONG) * lpThreadParameters->vecstrIPs.size());
     if (NULL == NTEContexts) {
-//        LocalFree(szArglist);
-        /*return error*/SendLogLine(L"wWinMain(): Cannot allocate NTE Contexts", GetLastError());    
+        SendLogLine(L"IPLoopMain(): Cannot allocate NTE Contexts! LastError=0x%X", GetLastError());    
         return 1;
     }
 
-	/*OutputDebugStringW*/SendLogLine(L"wWinMain(): NTE Context allocated.");
+	SendLogLine(L"IPLoopMain(): NTE Context allocated.");
 
     ADDRINFOW hints;
     ZeroMemory(&hints, sizeof(hints));
@@ -823,60 +724,60 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
     WSADATA wsaData;
     DWORD wsaErr = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (wsaErr != 0) {
-        /*return error*/SendLogLine(L"wWinMain(): Winsock initialization failed", wsaErr);
+        SendLogLine(L"IPLoopMain(): Winsock initialization failed! LastError=0x%X", wsaErr);
         return 1;
     }
 
-	/*OutputDebugStringW*/SendLogLine(L"wWinMain(): Winsock initialized.");
+	SendLogLine(L"IPLoopMain(): Winsock initialized.");
 
     wchar_t eventNameI2P[MAX_PATH];
-    wcscpy(eventNameI2P, /*eventNameBase*/lpThreadParameters->strEventNameBase.c_str());
+    wcscpy(eventNameI2P, lpThreadParameters->strEventNameBase.c_str());
     wcscat(eventNameI2P, L"-I2P");
     HANDLE event_i2p = OpenEvent(SYNCHRONIZE | DELETE | EVENT_MODIFY_STATE, FALSE, eventNameI2P);
     if (NULL == event_i2p) {
-        /*return error*/SendLogLine(L"wWinMain(): Cannot access event (I2P)", GetLastError());
+        SendLogLine(L"IPLoopMain(): Cannot access event (I2P)! LastError=0x%X", GetLastError());
         return 1;
     }
 
     wchar_t eventNameP2I[MAX_PATH];
-    wcscpy(eventNameP2I, /*eventNameBase*/lpThreadParameters->strEventNameBase.c_str());
+    wcscpy(eventNameP2I, lpThreadParameters->strEventNameBase.c_str());
     wcscat(eventNameP2I, L"-P2I");
     HANDLE event_p2i = OpenEvent(SYNCHRONIZE | DELETE, FALSE, eventNameP2I);
     if (NULL == event_p2i) {
         CloseHandle(event_i2p);
-        /*return error*/SendLogLine(L"wWinMain(): Cannot access event (P2I)", GetLastError());
+        SendLogLine(L"IPLoopMain(): Cannot access event (P2I)! LastError=0x%X", GetLastError());
         return 1;
     }
 
-	/*OutputDebugStringW*/SendLogLine(L"wWinMain(): Event objects opened.");
+	SendLogLine(L"IPLoopMain(): Event objects opened.");
 
     class ServiceGuard
     {
     public:
         ServiceGuard()
         {
-            ::/*OutputDebugStringW*/SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service ...");
+            ::SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service ...");
 
             ::DoStopSvc();
 
-            ::/*OutputDebugStringW*/SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service done.");
+            ::SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service done.");
         }
 
         ~ServiceGuard()
         {
-            ::/*OutputDebugStringW*/SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service ...");
+            ::SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service ...");
 
             ::DoStartSvc();
 
-            ::/*OutputDebugStringW*/SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service done.");
+            ::SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service done.");
         }
     };
     std::unique_ptr<ServiceGuard> service_guard_sp;
 
 
-    if (/*tia_portal*/lpThreadParameters->bTiaPortalSupport)
+    if (lpThreadParameters->bTiaPortalSupport)
     {
-        /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Check the presence of the service local address ...");
+        SendLogLine(L"IPLoopMain(): Check the presence of the service local address ...");
 
         ListeningPortPresenceChecker listening_port_presence_checker(szSvcLocalAddressA);
 
@@ -888,11 +789,11 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
         if (listening_port_presence_checker.IsListeningPortFound())
         {
-            /*OutputDebugStringW*/SendLogLine(L"wWinMain(): The service local address is present.");
+            SendLogLine(L"IPLoopMain(): The service local address is present.");
 
             service_guard_sp = std::make_unique<ServiceGuard>();
 
-            /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Check the nonpresence of the service local address ...");
+            SendLogLine(L"IPLoopMain(): Check the nonpresence of the service local address ...");
 
             while (true)
             {
@@ -906,7 +807,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
                 }
                 if (!listening_port_nonpresence_checker.IsListeningPortFound())
                 {
-                    /*OutputDebugStringW*/SendLogLine(L"wWinMain(): The local address of the service is no longer present.");
+                    SendLogLine(L"IPLoopMain(): The local address of the service is no longer present.");
 
                     break;
                 }
@@ -914,81 +815,76 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
         else
         {
-            /*OutputDebugStringW*/SendLogLine(L"wWinMain(): The service local address is not present.");
+            SendLogLine(L"IPLoopMain(): The service local address is not present.");
         }
     }
 
     std::string strWALLIXPuTTYLocalAddressA;
 
-    for (/*int*/size_t i = /*1*/0; i < /*nArgs*/lpThreadParameters->vecstrIPs.size(); i++) {
-/*        if (!lstrcmpiW(szArglist[i], L"/tia"))
-        {
-            continue;
-        }
-        else */if (service_guard_sp)
-        {
-			/*OutputDebugStringW*/SendLogLine(L"wWinMain(): Generate WALLIX-PuTTY local address.");
+    for (size_t i = 0; i < lpThreadParameters->vecstrIPs.size(); i++) {
+        SendLogLine(L"IPLoopMain(): Hostname=\"%s\" (%d)", lpThreadParameters->vecstrIPs[i].c_str(), i);
 
-            std::wstring strWALLIXPuTTYLocalAddressW = /*szArglist*/lpThreadParameters->vecstrIPs[i];
+        if (service_guard_sp)
+        {
+            SendLogLine(L"IPLoopMain(): Generate WALLIX-PuTTY local address.");
+
+            std::wstring strWALLIXPuTTYLocalAddressW = lpThreadParameters->vecstrIPs[i];
             strWALLIXPuTTYLocalAddressW += L":102";
 
             size_t ulNumberOfBytesWritten;
             STRWideCharToAnsi(strWALLIXPuTTYLocalAddressW.c_str(), strWALLIXPuTTYLocalAddressA,
                 ulNumberOfBytesWritten);
 
-/*
-            {
-                char szDebugStringA[256];
-                _snprintf(szDebugStringA, _countof(szDebugStringA),
-                    "wWinMain(): WALLIXPuTTYLocalAddress=\"%s\"",
-                    strWALLIXPuTTYLocalAddressA.c_str());
-                OutputDebugStringA(szDebugStringA);
-            }
-*/
-            SendLogLine(L"wWinMain(): WALLIXPuTTYLocalAddress=\"%s\"",
+            SendLogLine(L"IPLoopMain(): WALLIXPuTTYLocalAddress=\"%s\"",
                 strWALLIXPuTTYLocalAddressW.c_str());
         }
 
         PADDRINFOW resAddr;
-        DWORD ret = GetAddrInfoW(/*szArglist*/lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
+        DWORD ret = GetAddrInfoW(lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
         if (ret != 0) {
             unmap(NTEContexts, nbContexts);
-            /*return error*/SendLogLine(/*szArglist[i]*/lpThreadParameters->vecstrIPs[i].c_str(), ret);
+            CloseHandle(event_i2p);
+            CloseHandle(event_p2i);
+            SendLogLine(_T("IPLoopMain(): Failed to translate hostname (\"%s\") to address!"), lpThreadParameters->vecstrIPs[i].c_str());
             return 1;
         }
         ULONG NTEInstance = 0;
         IN_ADDR *sin = (IN_ADDR*)(resAddr->ai_addr->sa_data + 2);
         ret = AddIPAddress((IPAddr)sin->S_un.S_addr, 0xFFFFFFFF, 1, &NTEContexts[nbContexts], &NTEInstance);
-        if (ret != NO_ERROR && ret != ERROR_OBJECT_ALREADY_EXISTS) {
+        if (ret == NO_ERROR)
+        {
+            nbContexts++;
+
+            SendLogLine(L"IPLoopMain(): IP address is mapped to loopback interface.");
+        }
+        else if (ret == ERROR_OBJECT_ALREADY_EXISTS)
+        {
             unmap(NTEContexts, nbContexts);
             CloseHandle(event_i2p);
             CloseHandle(event_p2i);
-            /*return error*/SendLogLine(L"wWinMain(): Cannot map IP address to loopback interface!", ret);
-            return 1;
+            SendLogLine(L"IPLoopMain(): IP address is already mapped to loopback interface!");
         }
-        if (ret != ERROR_OBJECT_ALREADY_EXISTS) {
-            nbContexts++;
-            
-            SendLogLine(L"wWinMain(): IP address is mapped to loopback interface.", ret);
+        else 
+        {
+            unmap(NTEContexts, nbContexts);
+            CloseHandle(event_i2p);
+            CloseHandle(event_p2i);
+            SendLogLine(L"IPLoopMain(): Cannot map IP address to loopback interface!");
+            return 1;
         }
     }
 
-    /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Set event (I2P).");
+    SendLogLine(L"IPLoopMain(): Set event (I2P).");
 
     SetEvent(event_i2p);
 
-    /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Wait for event (P2I) ...");
+    SendLogLine(L"IPLoopMain(): Wait for event (P2I) ...");
 
-/*
-    if (WaitForSingleObject(event, INFINITE) != WAIT_OBJECT_0) {
-        error(L"Event not signaled", GetLastError());
-    }
-*/
     while (true)
     {
         if (service_guard_sp)
         {
-            /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Check the presence of the WALLIX-PuTTY local address ...");
+            SendLogLine(L"IPLoopMain(): Check the presence of the WALLIX-PuTTY local address ...");
 
             ListeningPortPresenceChecker listening_port_presence_checker(strWALLIXPuTTYLocalAddressA.c_str());
 
@@ -1000,45 +896,43 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             }
             if (listening_port_presence_checker.IsListeningPortFound())
             {
-                /*OutputDebugStringW*/SendLogLine(L"wWinMain(): The WALLIX-PuTTY local address is present.");
+                SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local address is present.");
 
                 service_guard_sp.reset(nullptr);
             }
             else
             {
-                /*OutputDebugStringW*/SendLogLine(L"wWinMain(): The WALLIX-PuTTY local address is not present.");
+                SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local address is not present.");
             }
         }
 
         DWORD const dwWaitResult = WaitForSingleObject(event_p2i, 1000);
         if (WAIT_OBJECT_0 == dwWaitResult)
         {
-            /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Event (P2I) signaled.");
+            SendLogLine(L"IPLoopMain(): Event (P2I) signaled.");
 
             break;
         }
-
-        if (WAIT_TIMEOUT != dwWaitResult)
+        else if (WAIT_TIMEOUT != dwWaitResult)
         {
-            /*error*/SendLogLine(L"wWinMain(): Event not signaled", GetLastError());
+            SendLogLine(L"IPLoopMain(): Event (P2I) not signaled!", GetLastError());
             break;
         }
     }
 
     if (CloseHandle(event_i2p) == FALSE) {
-        /*error*/SendLogLine(L"wWinMain(): Cannot close event (I2P)", GetLastError());
+        SendLogLine(L"IPLoopMain(): Cannot close event (I2P)! LastError=0x%X", GetLastError());
     }
 
     if (CloseHandle(event_p2i) == FALSE) {
-        /*error*/SendLogLine(L"wWinMain(): Cannot close event (P2I)", GetLastError());
+        SendLogLine(L"IPLoopMain(): Cannot close event (P2I)! LastError=0x%X", GetLastError());
     }
 
     unmap(NTEContexts, nbContexts);
 
-//    LocalFree(szArglist);
     HeapFree(heap, 0, NTEContexts);
 
-    /*OutputDebugStringW*/SendLogLine(L"wWinMain(): Done.");
+    SendLogLine(L"IPLoopMain(): Done.");
 
     return 0;
 }
@@ -1054,15 +948,6 @@ DWORD WINAPI IPLoopThreadProc(_In_ void* lpParameter)
     catch (...)
     {
     }
-
-/*
-    if (lpThreadParameters->hParentProcess)
-    {
-        ::WaitForSingleObject(lpThreadParameters->hParentProcess, INFINITE);
-    }
-
-    Sleep(2000);
-*/
 
     ::PostThreadMessage(lpThreadParameters->dwGUIThreadId, WM_QUIT, 0, 0);
 

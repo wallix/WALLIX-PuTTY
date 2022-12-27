@@ -2001,7 +2001,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 	}
 
     wchar_t szParent[256];
-    swprintf(szParent, _countof(szParent), L" /parent %u", GetCurrentProcessId());
+    swprintf(szParent, _countof(szParent), L" /parent %u /window %u", GetCurrentProcessId(), hwnd);
 
 	wchar_t *szCmdline = (wchar_t *)malloc((size + 256) * sizeof(wchar_t));
 	wcscpy(szCmdline, eventNameBase);
