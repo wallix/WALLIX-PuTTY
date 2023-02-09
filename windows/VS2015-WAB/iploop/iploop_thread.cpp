@@ -33,9 +33,13 @@
 
 static const wchar_t* appname = L"WALLIX PuTYY IP Loopback Manager";
 
-static char szSvcLocalAddressA[] = "0.0.0.0:102";
+//static char           szSvcLocalAddressAndPortA[] = "0.0.0.0:102";
+static TCHAR          szSvcLocalAddress[]         = _T("0.0.0.0");
+static unsigned short usSvcLocalPort              = 102;
+
 static wchar_t szSvcNameW[] = L"s7oiehsx64";
 
+/*
 class ListeningPortPresenceChecker
 {
     UniqueProcess m_shProcess;
@@ -157,7 +161,9 @@ private:
             if (vstringsA.size() == 5 &&
                 !::_stricmp("TCP", vstringsA[0].c_str()) &&
                 !::_stricmp(m_strLocalAddressA.c_str(), vstringsA[1].c_str()) &&
-                !::_stricmp("LISTENING", vstringsA[3].c_str()))
+                (!::_stricmp("LISTENING", vstringsA[3].c_str()) ||
+//                 !::strcmp("ABHÖREN", vstringsA[3].c_str()) ||
+                 !::strncmp("ABH", vstringsA[3].c_str(), 3)))
             {
                 ::SendLogLine(
                     _T("ListeningPortPresenceChecker::ParseResult(): ")
@@ -238,6 +244,233 @@ public:
         }   // if (!m_shProcess || (ERROR_SUCCESS != dwLastError))
 
         ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): Done."));
+    }
+};
+*/
+
+#if defined(_UNICODE) || defined(UNICODE)
+
+using tstring = std::wstring;
+
+#else   // #if defined(_UNICODE) || defined(UNICODE)
+
+using tstring = std::string;
+
+#endif  // #if defined(_UNICODE) || defined(UNICODE)
+
+class ListeningPortPresenceChecker2
+{
+    tstring m_strLocalAddress;
+
+    unsigned short m_usLocalPort = 0;
+
+    bool m_bIsListeningPortFound = false;
+
+public:
+    ListeningPortPresenceChecker2(LPCTSTR pszLocalAddress, unsigned short usLocalPort) :
+        m_strLocalAddress(pszLocalAddress), m_usLocalPort(usLocalPort) {}
+
+    bool IsInProgress() const
+    {
+        return false;
+    }
+
+    bool IsListeningPortFound() const
+    {
+        return m_bIsListeningPortFound;
+    }
+
+private:
+    static TCHAR *
+        rep_inet_ntoa(struct in_addr ina, TCHAR * out_buf,
+            size_t out_buf_len)
+    {
+        unsigned char * ucp = (unsigned char *)&ina;
+
+        _sntprintf_s(out_buf, out_buf_len, _TRUNCATE, _T("%d.%d.%d.%d"),
+            ucp[0] & 0xff,
+            ucp[1] & 0xff,
+            ucp[2] & 0xff,
+            ucp[3] & 0xff);
+
+        return out_buf;
+    }
+
+    static void STRTrimTrailingNullCharacters(_Inout_ tstring& rstr)
+    {
+        size_t const ulPos = rstr.find_last_not_of(_T('\0'));
+        rstr.resize((std::string::npos == ulPos) ? 0 : ulPos + 1);
+    }   // void STRTrimTrailingNullCharacters(_Inout_ tstring& rstr)
+
+    static LPCTSTR NETGetTCPConnectionStateName(_In_ DWORD dwState)
+    {
+        switch (dwState)
+        {
+        case MIB_TCP_STATE_CLOSED:
+            return _T("MIB_TCP_STATE_CLOSED");
+        case MIB_TCP_STATE_LISTEN:
+            return _T("MIB_TCP_STATE_LISTEN");
+        case MIB_TCP_STATE_SYN_SENT:
+            return _T("MIB_TCP_STATE_SYN_SENT");
+        case MIB_TCP_STATE_SYN_RCVD:
+            return _T("MIB_TCP_STATE_SYN_RCVD");
+        case MIB_TCP_STATE_ESTAB:
+            return _T("MIB_TCP_STATE_ESTAB");
+        case MIB_TCP_STATE_FIN_WAIT1:
+            return _T("MIB_TCP_STATE_FIN_WAIT1");
+        case MIB_TCP_STATE_FIN_WAIT2:
+            return _T("MIB_TCP_STATE_FIN_WAIT2");
+        case MIB_TCP_STATE_CLOSE_WAIT:
+            return _T("MIB_TCP_STATE_CLOSE_WAIT");
+        case MIB_TCP_STATE_CLOSING:
+            return _T("MIB_TCP_STATE_CLOSING");
+        case MIB_TCP_STATE_LAST_ACK:
+            return _T("MIB_TCP_STATE_LAST_ACK");
+        case MIB_TCP_STATE_TIME_WAIT:
+            return _T("MIB_TCP_STATE_TIME_WAIT");
+        case MIB_TCP_STATE_DELETE_TCB:
+            return _T("MIB_TCP_STATE_DELETE_TCB");
+        default:
+            return _T("<unknown>");
+        }   // switch (dwState)
+    }   // LPCTSTR NETGetTCPConnectionStateName(_In_ DWORD dwState)
+
+public:
+    void CheckResult()
+    {
+    }
+
+    void Start()
+    {
+        DWORD dwSize = 0;
+        DWORD dwResult = ::GetExtendedTcpTable(
+                /*pTcpTable  =*/ NULL,
+                /*pdwSize    =*/ &dwSize,
+                /*bOrder     =*/ TRUE,
+                /*ulAf       =*/ AF_INET,
+                /*TableClass =*/ TCP_TABLE_OWNER_PID_ALL,
+                /*Reserved   =*/ 0
+            );
+        if (ERROR_INSUFFICIENT_BUFFER == dwResult)
+        {
+            std::unique_ptr<BYTE[]> spbarrTcpTableData(new BYTE[dwSize]);
+
+            PMIB_TCPTABLE_OWNER_PID pMIB_TCPTable_Owner_PID =
+                reinterpret_cast<PMIB_TCPTABLE_OWNER_PID>(spbarrTcpTableData.get());
+
+            dwResult = ::GetExtendedTcpTable(
+                    /*pTcpTable  =*/ pMIB_TCPTable_Owner_PID,
+                    /*pdwSize    =*/ &dwSize,
+                    /*bOrder     =*/ TRUE,
+                    /*ulAf       =*/ AF_INET,
+                    /*TableClass =*/ TCP_TABLE_OWNER_PID_ALL,
+                    /*Reserved   =*/ 0
+                );
+            if (NO_ERROR == dwResult)
+            {
+                for (DWORD i = 0; i < pMIB_TCPTable_Owner_PID->dwNumEntries; ++i)
+                {
+                    MIB_TCPROW_OWNER_PID & MIB_TCPRow_Owner_PID =
+                        pMIB_TCPTable_Owner_PID->table[i];
+
+                    struct in_addr ina = { 0 };
+                    ina.S_un.S_addr = MIB_TCPRow_Owner_PID.dwLocalAddr;
+                    tstring local_address;
+                    size_t const IPV4_ADDRESS_BUFFER_SIZE = 4 * sizeof "123";
+                    local_address.resize(IPV4_ADDRESS_BUFFER_SIZE);
+                    rep_inet_ntoa(ina, &local_address[0],
+                        local_address.size());
+                    STRTrimTrailingNullCharacters(local_address);
+
+                    struct in_addr outa = { 0 };
+                    outa.S_un.S_addr = MIB_TCPRow_Owner_PID.dwRemoteAddr;
+                    tstring remote_address;
+                    remote_address.resize(IPV4_ADDRESS_BUFFER_SIZE);
+                    rep_inet_ntoa(outa, &remote_address[0],
+                        remote_address.size());
+                    STRTrimTrailingNullCharacters(remote_address);
+
+/*
+                    {
+                        ::SendLogLine(
+                            _T("ListeningPortPresenceChecker2::Start(): ")
+                                _T("Network endpoint identified. ")
+                                _T("State=%s(%d) ")
+                                _T("LocalAddress=%s LocalPort=%u ")
+                                _T("RemoteAddress=%s RemotePort=%u ")
+                                _T("OwningPid=%u"),
+                            NETGetTCPConnectionStateName(
+                                MIB_TCPRow_Owner_PID.dwState),
+                            MIB_TCPRow_Owner_PID.dwState,
+                            local_address.c_str(),
+                            htons((unsigned short)
+                                MIB_TCPRow_Owner_PID.dwLocalPort),
+                            remote_address.c_str(),
+                            htons((unsigned short)
+                                MIB_TCPRow_Owner_PID.dwRemotePort),
+                            MIB_TCPRow_Owner_PID.dwOwningPid);
+                    }
+*/
+
+                    switch (MIB_TCPRow_Owner_PID.dwState)
+                    {
+                    case MIB_TCP_STATE_CLOSED:
+                    case MIB_TCP_STATE_SYN_SENT:
+                    case MIB_TCP_STATE_SYN_RCVD:
+                    case MIB_TCP_STATE_ESTAB:
+                    case MIB_TCP_STATE_FIN_WAIT1:
+                    case MIB_TCP_STATE_FIN_WAIT2:
+                    case MIB_TCP_STATE_CLOSE_WAIT:
+                    case MIB_TCP_STATE_CLOSING:
+                    case MIB_TCP_STATE_LAST_ACK:
+                    case MIB_TCP_STATE_TIME_WAIT:
+                    case MIB_TCP_STATE_DELETE_TCB:
+/*
+                        ::SendLogLine(
+                            _T("ListeningPortPresenceChecker2::Start(): ")
+                                _T("Ignored due to state of connection."));
+*/
+                        continue;
+
+                    case MIB_TCP_STATE_LISTEN:
+                        if (!m_strLocalAddress.compare(local_address) &&
+                            htons((unsigned short)MIB_TCPRow_Owner_PID.dwLocalPort) == m_usLocalPort)
+                        {
+                            m_bIsListeningPortFound = true;
+                        }
+/*
+                        else {
+                            ::SendLogLine(
+                                _T("ListeningPortPresenceChecker2::Start(): ")
+                                    _T("ExpectedAddr=%s GotAddr=%s ")
+                                    _T("ExpectedPort=%u GotPort=%u"),
+                                m_strLocalAddress.c_str(), local_address.c_str(),
+                                m_usLocalPort, htons((unsigned short)MIB_TCPRow_Owner_PID.dwLocalPort));
+                        }
+*/
+                        break;
+                    }   // switch (MIB_TCPRow_Owner_PID.dwState)
+
+                }   // for (DWORD i = 0; i < ...
+            }
+            else    // if (NO_ERROR == dwResult)
+            {
+                ::SendLogLine(
+                    _T("ListeningPortPresenceChecker2::Start(): ")
+                        _T("Failed to retrieve the list of TCP endpoints. ")
+                        _T("Result=%u"),
+                    dwResult);
+            }   // if (NO_ERROR == dwResult)
+        }
+        else    // if (ERROR_INSUFFICIENT_BUFFER == dwResult)
+        {
+            ::SendLogLine(
+                _T("ListeningPortPresenceChecker2::Start(): ")
+                    _T("Failed to determine required buffer size to hold ")
+                        _T("the list of TCP endpoints. ")
+                    _T("Result=%u"),
+                dwResult);
+        }   // if (ERROR_INSUFFICIENT_BUFFER == dwResult)
     }
 };
 
@@ -779,7 +1012,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
     {
         SendLogLine(L"IPLoopMain(): Check the presence of the service local address ...");
 
-        ListeningPortPresenceChecker listening_port_presence_checker(szSvcLocalAddressA);
+//        ListeningPortPresenceChecker listening_port_presence_checker(szSvcLocalAddressAndPortA);
+        ListeningPortPresenceChecker2 listening_port_presence_checker(szSvcLocalAddress, usSvcLocalPort);
 
         listening_port_presence_checker.Start();
         while (listening_port_presence_checker.IsInProgress())
@@ -797,7 +1031,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
 
             while (true)
             {
-                ListeningPortPresenceChecker listening_port_nonpresence_checker(szSvcLocalAddressA);
+//                ListeningPortPresenceChecker listening_port_nonpresence_checker(szSvcLocalAddressAndPortA);
+                ListeningPortPresenceChecker2 listening_port_nonpresence_checker(szSvcLocalAddress, usSvcLocalPort);
 
                 listening_port_nonpresence_checker.Start();
                 while (listening_port_nonpresence_checker.IsInProgress())
@@ -819,7 +1054,9 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
     }
 
-    std::string strWALLIXPuTTYLocalAddressA;
+    tstring strWALLIXPuTTYLocalAddress;
+
+    std::string strWALLIXPuTTYLocalAddressAndPortA;
 
     for (size_t i = 0; i < lpThreadParameters->vecstrIPs.size(); i++) {
         SendLogLine(L"IPLoopMain(): Hostname=\"%s\" (%d)", lpThreadParameters->vecstrIPs[i].c_str(), i);
@@ -828,15 +1065,17 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         {
             SendLogLine(L"IPLoopMain(): Generate WALLIX-PuTTY local address.");
 
-            std::wstring strWALLIXPuTTYLocalAddressW = lpThreadParameters->vecstrIPs[i];
-            strWALLIXPuTTYLocalAddressW += L":102";
+            strWALLIXPuTTYLocalAddress = lpThreadParameters->vecstrIPs[i];
+
+            std::wstring strWALLIXPuTTYLocalAddressAndPortW = lpThreadParameters->vecstrIPs[i];
+            strWALLIXPuTTYLocalAddressAndPortW += L":102";
 
             size_t ulNumberOfBytesWritten;
-            STRWideCharToAnsi(strWALLIXPuTTYLocalAddressW.c_str(), strWALLIXPuTTYLocalAddressA,
+            STRWideCharToAnsi(strWALLIXPuTTYLocalAddressAndPortW.c_str(), strWALLIXPuTTYLocalAddressAndPortA,
                 ulNumberOfBytesWritten);
 
             SendLogLine(L"IPLoopMain(): WALLIXPuTTYLocalAddress=\"%s\"",
-                strWALLIXPuTTYLocalAddressW.c_str());
+                strWALLIXPuTTYLocalAddressAndPortW.c_str());
         }
 
         PADDRINFOW resAddr;
@@ -886,7 +1125,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         {
             SendLogLine(L"IPLoopMain(): Check the presence of the WALLIX-PuTTY local address ...");
 
-            ListeningPortPresenceChecker listening_port_presence_checker(strWALLIXPuTTYLocalAddressA.c_str());
+//            ListeningPortPresenceChecker listening_port_presence_checker(strWALLIXPuTTYLocalAddressAndPortA.c_str());
+            ListeningPortPresenceChecker2 listening_port_presence_checker(strWALLIXPuTTYLocalAddress.c_str(), 102);
 
             listening_port_presence_checker.Start();
             while (listening_port_presence_checker.IsInProgress())
