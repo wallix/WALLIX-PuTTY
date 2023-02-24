@@ -8,7 +8,7 @@ struct IPLoopThreadParameter
 
     std::vector<std::wstring> vecstrIPs;
 
-    bool bTiaPortalSupport = FALSE;
+    bool bTiaPortalSupport = false;
 
     HANDLE hParentProcess = NULL;
 

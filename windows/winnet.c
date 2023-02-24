@@ -26,6 +26,7 @@
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <tchar.h>
 
 #ifndef NO_IPV6
 #ifdef __clang__
@@ -2000,8 +2001,41 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 		size += 5;	// "/tia"
 	}
 
-    wchar_t szParent[256];
-    swprintf(szParent, _countof(szParent), L" /parent %u /window %u", GetCurrentProcessId(), hwnd);
+    BOOL bWALLIX_UT_DEBUG = FALSE;
+    {
+        HKEY hEnvironmentKey = NULL;
+        LSTATUS lStatus = RegOpenKeyEx(HKEY_CURRENT_USER,
+                                       _T("Environment"),
+                                       0,
+                                       KEY_READ,
+                                       &hEnvironmentKey);
+        if (ERROR_SUCCESS == lStatus)
+        {
+            DWORD dwType                            = 0;
+            TCHAR szEnvironmentVariableContents[64] = { 0 };
+            DWORD cbData                            = sizeof(szEnvironmentVariableContents);
+            if (   ERROR_SUCCESS == RegQueryValueEx(hEnvironmentKey,
+                                                    _T("WALLIX_UT_DEBUG"),
+                                                    NULL,
+                                                    &dwType,
+                                                    szEnvironmentVariableContents,
+                                                    &cbData)
+                && (REG_MULTI_SZ == dwType || REG_SZ == dwType)
+                && cbData >= sizeof(TCHAR))
+            {
+                bWALLIX_UT_DEBUG = _ttoi(szEnvironmentVariableContents);
+            }
+
+            RegCloseKey(hEnvironmentKey);
+        }
+    }
+
+    wchar_t szParent[256] = { 0 };
+    ZeroMemory(szParent, sizeof(szParent));
+    if (bWALLIX_UT_DEBUG)
+    {
+        swprintf(szParent, _countof(szParent), L" /parent %u /window %u", GetCurrentProcessId(), (unsigned int)hwnd);
+    }
 
 	wchar_t *szCmdline = (wchar_t *)malloc((size + 256) * sizeof(wchar_t));
 	wcscpy(szCmdline, eventNameBase);
@@ -2021,7 +2055,10 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 		wcscat(szCmdline, L" /tia");
 	}
 
-    wcscat(szCmdline, szParent);
+    if (bWALLIX_UT_DEBUG)
+    {
+        wcscat(szCmdline, szParent);
+    }
 
     wchar_t eventNameI2P[MAX_PATH];
     wcscpy(eventNameI2P, eventNameBase);
