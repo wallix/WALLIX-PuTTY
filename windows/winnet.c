@@ -2003,30 +2003,13 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 
     BOOL bWALLIX_UT_DEBUG = FALSE;
     {
-        HKEY hEnvironmentKey = NULL;
-        LSTATUS lStatus = RegOpenKeyEx(HKEY_CURRENT_USER,
-                                       _T("Environment"),
-                                       0,
-                                       KEY_READ,
-                                       &hEnvironmentKey);
-        if (ERROR_SUCCESS == lStatus)
+        TCHAR szEnvironmentVariableContents[64] = { 0 };
+        DWORD const dwResult = GetEnvironmentVariable(_T("WALLIX_UT_DEBUG"),
+                                                      szEnvironmentVariableContents,
+                                                      _countof(szEnvironmentVariableContents));
+        if (dwResult && _countof(szEnvironmentVariableContents) > dwResult)
         {
-            DWORD dwType                            = 0;
-            TCHAR szEnvironmentVariableContents[64] = { 0 };
-            DWORD cbData                            = sizeof(szEnvironmentVariableContents);
-            if (   ERROR_SUCCESS == RegQueryValueEx(hEnvironmentKey,
-                                                    _T("WALLIX_UT_DEBUG"),
-                                                    NULL,
-                                                    &dwType,
-                                                    szEnvironmentVariableContents,
-                                                    &cbData)
-                && (REG_MULTI_SZ == dwType || REG_SZ == dwType)
-                && cbData >= sizeof(TCHAR))
-            {
-                bWALLIX_UT_DEBUG = _ttoi(szEnvironmentVariableContents);
-            }
-
-            RegCloseKey(hEnvironmentKey);
+            bWALLIX_UT_DEBUG = _ttoi(szEnvironmentVariableContents);
         }
     }
 
