@@ -13,6 +13,8 @@ struct IPLoopThreadParameter
     HANDLE hParentProcess = NULL;
 
     DWORD dwGUIThreadId = 0;
+
+    bool bStandaloneMode = false;
 };
 
 DWORD WINAPI IPLoopThreadProc(void* lpParameter);

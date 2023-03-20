@@ -966,20 +966,38 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
     wchar_t eventNameI2P[MAX_PATH];
     wcscpy(eventNameI2P, lpThreadParameters->strEventNameBase.c_str());
     wcscat(eventNameI2P, L"-I2P");
-    HANDLE event_i2p = OpenEvent(SYNCHRONIZE | DELETE | EVENT_MODIFY_STATE, FALSE, eventNameI2P);
-    if (NULL == event_i2p) {
-        SendLogLine(L"IPLoopMain(): Cannot access event (I2P)! LastError=0x%X", GetLastError());
-        return 1;
+    HANDLE event_i2p = NULL;
+    if (!lpThreadParameters->bStandaloneMode) {
+        event_i2p = OpenEvent(SYNCHRONIZE | DELETE | EVENT_MODIFY_STATE, FALSE, eventNameI2P);
+        if (NULL == event_i2p) {
+            SendLogLine(L"IPLoopMain(): Cannot access event (I2P)! LastError=0x%X", GetLastError());
+            return 1;
+        }
     }
 
-    wchar_t eventNameP2I[MAX_PATH];
-    wcscpy(eventNameP2I, lpThreadParameters->strEventNameBase.c_str());
-    wcscat(eventNameP2I, L"-P2I");
-    HANDLE event_p2i = OpenEvent(SYNCHRONIZE | DELETE, FALSE, eventNameP2I);
-    if (NULL == event_p2i) {
-        CloseHandle(event_i2p);
-        SendLogLine(L"IPLoopMain(): Cannot access event (P2I)! LastError=0x%X", GetLastError());
-        return 1;
+    HANDLE event_p2i = NULL;
+    if (!lpThreadParameters->bStandaloneMode) {
+        wchar_t eventNameP2I[MAX_PATH];
+        wcscpy(eventNameP2I, lpThreadParameters->strEventNameBase.c_str());
+        wcscat(eventNameP2I, L"-P2I");
+        event_p2i = OpenEvent(SYNCHRONIZE | DELETE, FALSE, eventNameP2I);
+        if (NULL == event_p2i) {
+            if (event_i2p) { CloseHandle(event_i2p); }
+            SendLogLine(L"IPLoopMain(): Cannot access event (P2I)! LastError=0x%X", GetLastError());
+            return 1;
+        }
+    }
+    else {
+        wchar_t strEventName[MAX_PATH];
+        _tcscat(strEventName, _T("Local\\"));
+        wcscpy(strEventName, lpThreadParameters->strEventNameBase.c_str());
+        wcscat(strEventName, L"-SA");
+        event_p2i = CreateEvent(NULL, TRUE, FALSE, strEventName);
+        if (NULL == event_p2i) {
+            if (event_i2p) { CloseHandle(event_i2p); }
+            SendLogLine(L"IPLoopMain(): Cannot create standalone event (SA)! LastError=0x%X", GetLastError());
+            return 1;
+        }
     }
 
 	SendLogLine(L"IPLoopMain(): Event objects opened.");
@@ -1082,7 +1100,9 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         DWORD ret = GetAddrInfoW(lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
         if (ret != 0) {
             unmap(NTEContexts, nbContexts);
-            CloseHandle(event_i2p);
+            if (event_i2p) {
+                CloseHandle(event_i2p);
+            }
             CloseHandle(event_p2i);
             SendLogLine(_T("IPLoopMain(): Failed to translate hostname (\"%s\") to address!"), lpThreadParameters->vecstrIPs[i].c_str());
             return 1;
@@ -1099,23 +1119,29 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         else if (ret == ERROR_OBJECT_ALREADY_EXISTS)
         {
             unmap(NTEContexts, nbContexts);
-            CloseHandle(event_i2p);
+            if (event_i2p) {
+                CloseHandle(event_i2p);
+            }
             CloseHandle(event_p2i);
             SendLogLine(L"IPLoopMain(): IP address is already mapped to loopback interface!");
         }
         else 
         {
             unmap(NTEContexts, nbContexts);
-            CloseHandle(event_i2p);
+            if (event_i2p) {
+                CloseHandle(event_i2p);
+            }
             CloseHandle(event_p2i);
             SendLogLine(L"IPLoopMain(): Cannot map IP address to loopback interface!");
             return 1;
         }
     }
 
-    SendLogLine(L"IPLoopMain(): Set event (I2P).");
+    if (event_i2p) {
+        SendLogLine(L"IPLoopMain(): Set event (I2P).");
 
-    SetEvent(event_i2p);
+        SetEvent(event_i2p);
+    }
 
     SendLogLine(L"IPLoopMain(): Wait for event (P2I) ...");
 
@@ -1160,7 +1186,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
     }
 
-    if (CloseHandle(event_i2p) == FALSE) {
+    if (event_i2p && CloseHandle(event_i2p) == FALSE) {
         SendLogLine(L"IPLoopMain(): Cannot close event (I2P)! LastError=0x%X", GetLastError());
     }
 

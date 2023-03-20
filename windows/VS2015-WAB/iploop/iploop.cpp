@@ -31,6 +31,31 @@ std::wstring strLogLines;
 
 std::wstring strParentWindowTitle;
 
+IPLoopThreadParameter parameters;
+
+bool RaiseEndEvent(LPCTSTR lpszBaseEventName, LPCTSTR lpszMsgBoxTitle)
+{
+    TCHAR strEventName[MAX_PATH];
+    _tcscat(strEventName, _T("Local\\"));
+    wcscpy(strEventName, lpszBaseEventName);
+    wcscat(strEventName, L"-SA");
+
+    HANDLE hEvent = OpenEvent(SYNCHRONIZE | DELETE | EVENT_MODIFY_STATE, FALSE, strEventName);
+    if (NULL == hEvent)
+    {
+        if (lpszMsgBoxTitle)
+        {
+            MessageBox(NULL, _T("Cannot open an existing named event object!"), lpszMsgBoxTitle, MB_ICONERROR | MB_OK);
+        }
+        return false;
+    }
+
+    SetEvent(hEvent);
+    CloseHandle(hEvent);
+
+    return true;
+}
+
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPTSTR    lpCmdLine,
@@ -51,23 +76,25 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
     if (nArgs < 2) {
-        MessageBox(NULL, _T("iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_id] [/window parent_wnd]"), szTitle, MB_ICONERROR | MB_OK);
+        MessageBox(NULL, _T("iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
         LocalFree(szArglistW);
         return FALSE;
     }
-
-    IPLoopThreadParameter parameters;
 
     parameters.strEventNameBase = szArglistW[0];
     parameters.dwGUIThreadId    = GetCurrentThreadId();
 
     for (int i = 1; i < nArgs; ++i)
     {
-        if (!lstrcmpi(szArglistW[i], _T("/tia")))
+        if (!lstrcmpi(szArglistW[i], _T("/begin-standalone")))
         {
-            OutputDebugStringW(L"_tWinMain(): Enable TIA portal support.");
-
-            parameters.bTiaPortalSupport = true;
+            parameters.bStandaloneMode = true;
+        }
+        else if (!lstrcmpi(szArglistW[i], _T("/end-standalone")))
+        {
+            bool const bResult = RaiseEndEvent(parameters.strEventNameBase.c_str(), szTitle);
+            LocalFree(szArglistW);
+            return bResult ? TRUE : FALSE;
         }
         else if (!lstrcmpi(szArglistW[i], _T("/parent")))
         {
@@ -86,6 +113,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                 LocalFree(szArglistW);
                 return FALSE;
             }
+        }
+        else if (!lstrcmpi(szArglistW[i], _T("/tia")))
+        {
+            OutputDebugStringW(L"_tWinMain(): Enable TIA portal support.");
+
+            parameters.bTiaPortalSupport = true;
         }
         else if (!lstrcmpi(szArglistW[i], _T("/window")))
         {
@@ -275,6 +308,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         break;
 
+    case WM_ENDSESSION:
+        {
+            RaiseEndEvent(parameters.strEventNameBase.c_str(), nullptr);
+        }
+        break;
+
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -350,6 +389,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
+
     return 0;
 }
 
