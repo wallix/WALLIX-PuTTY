@@ -86,17 +86,17 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
     for (int i = 1; i < nArgs; ++i)
     {
-        if (!lstrcmpi(szArglistW[i], _T("/begin-standalone")))
+        if (!lstrcmpi(szArglistW[i], L"/begin-standalone"))
         {
             parameters.bStandaloneMode = true;
         }
-        else if (!lstrcmpi(szArglistW[i], _T("/end-standalone")))
+        else if (!lstrcmpi(szArglistW[i], L"/end-standalone"))
         {
             bool const bResult = RaiseEndEvent(parameters.strEventNameBase.c_str(), szTitle);
             LocalFree(szArglistW);
             return bResult ? TRUE : FALSE;
         }
-        else if (!lstrcmpi(szArglistW[i], _T("/parent")))
+        else if (!lstrcmpi(szArglistW[i], L"/parent"))
         {
             if (i < nArgs - 1)
             {
@@ -114,13 +114,13 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                 return FALSE;
             }
         }
-        else if (!lstrcmpi(szArglistW[i], _T("/tia")))
+        else if (!lstrcmpi(szArglistW[i], L"/tia"))
         {
             OutputDebugStringW(L"_tWinMain(): Enable TIA portal support.");
 
             parameters.bTiaPortalSupport = true;
         }
-        else if (!lstrcmpi(szArglistW[i], _T("/window")))
+        else if (!lstrcmpi(szArglistW[i], L"/window"))
         {
             if (i < nArgs - 1)
             {
@@ -137,6 +137,15 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                 LocalFree(szArglistW);
                 return FALSE;
             }
+        }
+        else if (szArglistW[i][0] == L'/')
+        {
+            std::wstring strMessageW;
+            strMessageW = L"Unknown command-line switch: ";
+            strMessageW += szArglistW[i];
+            MessageBoxW(NULL, strMessageW.c_str(), szTitle, MB_ICONERROR | MB_OK);
+            LocalFree(szArglistW);
+            return FALSE;
         }
         else
         {
