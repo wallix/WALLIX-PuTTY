@@ -5,6 +5,8 @@
 #include "iploop.h"
 
 #include <vector>
+#include <algorithm>
+
 
 #define MAX_LOADSTRING 100
 
@@ -147,7 +149,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
             LocalFree(szArglistW);
             return FALSE;
         }
-        else
+        else if (std::find(parameters.vecstrIPs.begin(), parameters.vecstrIPs.end(), szArglistW[i]) == parameters.vecstrIPs.end())
         {
             parameters.vecstrIPs.emplace_back(szArglistW[i]);
         }
