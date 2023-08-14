@@ -76,8 +76,8 @@ CAPTION "About iploop"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
-    LTEXT           "iploop, Version 1.1",IDC_STATIC,42,14,114,8,SS_NOPREFIX
-    LTEXT           "Copyright (c) WALLIX, 2020-2021",IDC_STATIC,42,26,114,8
+    LTEXT           "iploop, Version 1.4.0.19",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Copyright (c) WALLIX, 2020-2023",IDC_STATIC,42,26,114,8
     DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
 END
 
@@ -138,8 +138,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,4,0,18
- PRODUCTVERSION 1,4,0,18
+ FILEVERSION 1,4,0,19
+ PRODUCTVERSION 1,4,0,19
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -156,12 +156,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WALLIX"
             VALUE "FileDescription", "WALLIX PuTTY IP Loopback Manager"
-            VALUE "FileVersion", "1.4.0.18"
+            VALUE "FileVersion", "1.4.0.19"
             VALUE "InternalName", "iploop.exe"
             VALUE "LegalCopyright", "Copyright (C) WALLIX, 2020-2023"
             VALUE "OriginalFilename", "iploop.exe"
             VALUE "ProductName", "WALLIX Putty"
-            VALUE "ProductVersion", "1.4.0.18"
+            VALUE "ProductVersion", "1.4.0.19"
         END
     END
     BLOCK "VarFileInfo"
