@@ -22,6 +22,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -138,8 +139,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,4,0,19
- PRODUCTVERSION 1,4,0,19
+ FILEVERSION 1,4,1,20
+ PRODUCTVERSION 1,4,1,20
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -156,12 +157,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WALLIX"
             VALUE "FileDescription", "WALLIX PuTTY IP Loopback Manager"
-            VALUE "FileVersion", "1.4.0.19"
+            VALUE "FileVersion", "1.4.1.20"
             VALUE "InternalName", "iploop.exe"
             VALUE "LegalCopyright", "Copyright (C) WALLIX, 2020-2023"
             VALUE "OriginalFilename", "iploop.exe"
             VALUE "ProductName", "WALLIX Putty"
-            VALUE "ProductVersion", "1.4.0.19"
+            VALUE "ProductVersion", "1.4.1.20"
         END
     END
     BLOCK "VarFileInfo"
