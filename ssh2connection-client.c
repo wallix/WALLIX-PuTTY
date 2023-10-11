@@ -168,9 +168,11 @@ PktOut *ssh2_portfwd_chanopen(
      * configuration. The "originator IP address" is syntactically a
      * numeric IP address, and some servers (e.g., Tectia) get upset
      * if it doesn't match this syntax.
+     * EDIT: these are not local network configuration
+     * but ip and port of the connected client.
      */
-    put_stringz(pktout, "0.0.0.0");
-    put_uint32(pktout, 0);
+    put_stringz(pktout, peerinfo->addr_text);
+    put_uint32(pktout, peerinfo->port);
 
     return pktout;
 }
