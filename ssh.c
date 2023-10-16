@@ -909,54 +909,54 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
     random_ref(); /* do this now - may be needed by sharing setup code */
     ssh->need_random_unref = true;
 
-	/* Map IP to loopback if SSH tunnel flag set. */
-	if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
-		int nbAddr = 0;
-		char* key, *val;
+    /* Map IP to loopback if SSH tunnel flag set. */
+    if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
+        int nbAddr = 0;
+        char* key, *val;
         bool addr_limit_reached = false;
-		char *loopback_addr[MAX_IPLOOP_ADDR];
-		for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
-			val != NULL;
-			val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
-			char* kp, *kp2;
-			char address_family, type;
-			char *saddr;
+        char *loopback_addr[MAX_IPLOOP_ADDR];
+        for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
+             val != NULL;
+             val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
+            char* kp, *kp2;
+            char address_family, type;
+            char *saddr;
 
-			kp = key;
+            kp = key;
 
-			address_family = 'A';
-			type = 'L';
-			if (*kp == 'A' || *kp == '4' || *kp == '6')
-				address_family = *kp++;
-			if (*kp == 'L' || *kp == 'R')
-				type = *kp++;
+            address_family = 'A';
+            type = 'L';
+            if (*kp == 'A' || *kp == '4' || *kp == '6')
+                address_family = *kp++;
+            if (*kp == 'L' || *kp == 'R')
+                type = *kp++;
 
-			if ((kp2 = host_strchr(kp, ':')) != NULL) {
-				if (atoi(kp2 + 1) == 102)
-				{
-					tia_portal = true;
-				}
+            if ((kp2 = host_strchr(kp, ':')) != NULL) {
+                if (atoi(kp2 + 1) == 102)
+                {
+                    tia_portal = true;
+                }
 
-				/*
-				 * There's a colon in the middle of the source port
-				 * string, which means that the part before it is
-				 * actually a source address.
-				 */
-				char* saddr_tmp = dupprintf("%.*s", (int)(kp2 - kp), kp);
-				saddr = host_strduptrim(saddr_tmp);
-				sfree(saddr_tmp);
-			}
-			else {
-				saddr = NULL;
-			}
+                /*
+                 * There's a colon in the middle of the source port
+                 * string, which means that the part before it is
+                 * actually a source address.
+                 */
+                char* saddr_tmp = dupprintf("%.*s", (int)(kp2 - kp), kp);
+                saddr = host_strduptrim(saddr_tmp);
+                sfree(saddr_tmp);
+            }
+            else {
+                saddr = NULL;
+            }
 
-			if (type == 'L') {
-				ULONG nteContext = 0;
-				if (!addr_limit_reached && nbAddr == MAX_IPLOOP_ADDR) {
-					seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>%d)", MAX_IPLOOP_ADDR);
+            if (type == 'L') {
+                ULONG nteContext = 0;
+                if (!addr_limit_reached && nbAddr == MAX_IPLOOP_ADDR) {
+                    seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>%d)", MAX_IPLOOP_ADDR);
                     addr_limit_reached = true;
-				}
-				if (nbAddr < MAX_IPLOOP_ADDR) {
+                }
+                if (nbAddr < MAX_IPLOOP_ADDR) {
                     bool already_in = false;
                     for (int idx = 0; idx < nbAddr; idx++) {
                         if (nullstrcmp(loopback_addr[idx], saddr) == 0) {
@@ -966,14 +966,14 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
                     if (!already_in) {
                         loopback_addr[nbAddr++] = saddr;
                     }
-				}
-			}
-		}
+                }
+            }
+        }
 
-		if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr, tia_portal) != 0) {
-			seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
-		}
-	}
+        if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr, tia_portal) != 0) {
+            seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
+        }
+    }
 
     p = connect_to_host(ssh, host, port, realhost, nodelay, keepalive);
     if (p != NULL) {
