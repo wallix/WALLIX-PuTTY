@@ -29,6 +29,7 @@
 #define GSS_CTXT_MAYFAIL (1<<3) /* Context may expire during handshake */
 #endif
 
+#define MAX_IPLOOP_ADDR 64
 struct Ssh {
     Socket *s;
     Seat *seat;
@@ -911,15 +912,15 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
 	/* Map IP to loopback if SSH tunnel flag set. */
 	if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
 		int nbAddr = 0;
-		char* key, *val, type;
-		char *loopback_addr[16];
+		char* key, *val;
+        bool addr_limit_reached = false;
+		char *loopback_addr[MAX_IPLOOP_ADDR];
 		for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
 			val != NULL;
 			val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
-			char* kp, *kp2, *vp, *vp2;
+			char* kp, *kp2;
 			char address_family, type;
-			int sport, dport, sserv, dserv;
-			char* sports, *dports, *saddr, *host;
+			char *saddr;
 
 			kp = key;
 
@@ -950,14 +951,21 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
 			}
 
 			if (type == 'L') {
-				char* errmsg;
 				ULONG nteContext = 0;
-				if (nbAddr == 16) {
-					seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>16)");
+				if (!addr_limit_reached && nbAddr == MAX_IPLOOP_ADDR) {
+					seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>%d)", MAX_IPLOOP_ADDR);
+                    addr_limit_reached = true;
 				}
-				if (nbAddr < 16) {
-					char* result;
-					loopback_addr[nbAddr++] = saddr;
+				if (nbAddr < MAX_IPLOOP_ADDR) {
+                    bool already_in = false;
+                    for (int idx = 0; idx < nbAddr; idx++) {
+                        if (nullstrcmp(loopback_addr[idx], saddr) == 0) {
+                            already_in = true;
+                        }
+                    }
+                    if (!already_in) {
+                        loopback_addr[nbAddr++] = saddr;
+                    }
 				}
 			}
 		}
