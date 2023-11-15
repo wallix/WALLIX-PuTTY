@@ -881,8 +881,6 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
     const char *p;
     Ssh *ssh;
 
-	bool tia_portal = false;
-
     ssh = snew(Ssh);
     memset(ssh, 0, sizeof(Ssh));
 
@@ -912,15 +910,19 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
     /* Map IP to loopback if SSH tunnel flag set. */
     if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
         int nbAddr = 0;
+        int nbTia = 0;
         char* key, *val;
         bool addr_limit_reached = false;
         char *loopback_addr[MAX_IPLOOP_ADDR];
+        char *tia_addr[MAX_IPLOOP_ADDR];
         for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
              val != NULL;
              val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
             char* kp, *kp2;
             char address_family, type;
             char *saddr;
+
+            bool tia_portal = false;
 
             kp = key;
 
@@ -957,21 +959,36 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
                     addr_limit_reached = true;
                 }
                 if (nbAddr < MAX_IPLOOP_ADDR) {
+                    char * saddr_tia = saddr;
                     bool already_in = false;
                     for (int idx = 0; idx < nbAddr; idx++) {
                         if (nullstrcmp(loopback_addr[idx], saddr) == 0) {
                             already_in = true;
+                            saddr_tia = loopback_addr[idx];
                         }
                     }
                     if (!already_in) {
                         loopback_addr[nbAddr++] = saddr;
                     }
+                    else
+                    {
+                        sfree(saddr);
+                    }
+
+                    if (tia_portal)
+                    {
+                        tia_addr[nbTia++] = saddr_tia;
+                    }
                 }
             }
         }
 
-        if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr, tia_portal) != 0) {
+        if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nbAddr, tia_addr, nbTia) != 0) {
             seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
+        }
+
+        for (int idx = 0; idx < nbAddr; idx++) {
+            sfree(loopback_addr[idx]);
         }
     }
 

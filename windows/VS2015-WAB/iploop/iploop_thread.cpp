@@ -6,6 +6,7 @@
 // Windows Header Files
 #include <windows.h>
 
+#include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <memory>
@@ -35,9 +36,9 @@ static const wchar_t* appname = L"WALLIX PuTYY IP Loopback Manager";
 
 //static char           szSvcLocalAddressAndPortA[] = "0.0.0.0:102";
 static TCHAR          szSvcLocalAddress[]         = _T("0.0.0.0");
-static unsigned short usSvcLocalPort              = 102;
+//static unsigned short usSvcLocalPort              = 102;
 
-static wchar_t szSvcNameW[] = L"s7oiehsx64";
+//static wchar_t szSvcNameW[] = L"s7oiehsx64";
 
 /*
 class ListeningPortPresenceChecker
@@ -248,36 +249,19 @@ public:
 };
 */
 
-#if defined(_UNICODE) || defined(UNICODE)
-
-using tstring = std::wstring;
-
-#else   // #if defined(_UNICODE) || defined(UNICODE)
-
-using tstring = std::string;
-
-#endif  // #if defined(_UNICODE) || defined(UNICODE)
-
 class ListeningPortPresenceChecker2
 {
-    tstring m_strLocalAddress;
+    std::vector<tstring>& m_rstrvecLocalAddresses;
 
-    unsigned short m_usLocalPort = 0;
-
-    bool m_bIsListeningPortFound = false;
+    unsigned short const m_usLocalPort;
 
 public:
-    ListeningPortPresenceChecker2(LPCTSTR pszLocalAddress, unsigned short usLocalPort) :
-        m_strLocalAddress(pszLocalAddress), m_usLocalPort(usLocalPort) {}
+    ListeningPortPresenceChecker2(std::vector<tstring>& rvecstrLocalAddresses, unsigned short usLocalPort) :
+        m_rstrvecLocalAddresses(rvecstrLocalAddresses), m_usLocalPort(usLocalPort) {}
 
     bool IsInProgress() const
     {
         return false;
-    }
-
-    bool IsListeningPortFound() const
-    {
-        return m_bIsListeningPortFound;
     }
 
 private:
@@ -298,8 +282,8 @@ private:
 
     static void STRTrimTrailingNullCharacters(_Inout_ tstring& rstr)
     {
-        size_t const ulPos = rstr.find_last_not_of(_T('\0'));
-        rstr.resize((std::string::npos == ulPos) ? 0 : ulPos + 1);
+        size_t const ulPos = _tcslen(rstr.c_str());
+        rstr.resize(ulPos);
     }   // void STRTrimTrailingNullCharacters(_Inout_ tstring& rstr)
 
     static LPCTSTR NETGetTCPConnectionStateName(_In_ DWORD dwState)
@@ -433,18 +417,33 @@ public:
                         continue;
 
                     case MIB_TCP_STATE_LISTEN:
-                        if (!m_strLocalAddress.compare(local_address) &&
-                            htons((unsigned short)MIB_TCPRow_Owner_PID.dwLocalPort) == m_usLocalPort)
+                        if (htons((unsigned short)MIB_TCPRow_Owner_PID.dwLocalPort) == m_usLocalPort)
                         {
-                            m_bIsListeningPortFound = true;
+                            m_rstrvecLocalAddresses.erase(std::remove_if(
+                                    m_rstrvecLocalAddresses.begin(),
+                                    m_rstrvecLocalAddresses.end(),
+                                    [local_address, this](tstring& rstrLocalAddress) {
+                                            bool retval = rstrLocalAddress.compare(local_address) == 0;
+
+                                            if (retval)
+                                            {
+                                                ::SendLogLine(
+                                                    _T("ListeningPortPresenceChecker2::Start(): ")
+                                                        _T("Listening port found: %s:%u"),
+                                                    local_address.c_str(), m_usLocalPort);
+                                            }
+
+                                            return retval;
+                                        }
+                                ), m_rstrvecLocalAddresses.end());
                         }
 /*
-                        else {
+                        for (auto rstrLocalAddress : m_rstrvecLocalAddresses) {
                             ::SendLogLine(
                                 _T("ListeningPortPresenceChecker2::Start(): ")
                                     _T("ExpectedAddr=%s GotAddr=%s ")
                                     _T("ExpectedPort=%u GotPort=%u"),
-                                m_strLocalAddress.c_str(), local_address.c_str(),
+                                rstrLocalAddress.c_str(), local_address.c_str(),
                                 m_usLocalPort, htons((unsigned short)MIB_TCPRow_Owner_PID.dwLocalPort));
                         }
 */
@@ -474,7 +473,7 @@ public:
     }
 };
 
-VOID __stdcall DoStartSvc()
+VOID __stdcall DoStartSvc(LPCTSTR lpszServiceName)
 {
     SERVICE_STATUS_PROCESS ssStatus;
     DWORD dwOldCheckPoint;
@@ -499,7 +498,7 @@ VOID __stdcall DoStartSvc()
 
     SC_HANDLE schService = OpenServiceW(
         schSCManager,         // SCM database
-        szSvcNameW,           // name of service
+        lpszServiceName,           // name of service
         SERVICE_ALL_ACCESS);  // full access
 
     if (schService == NULL)
@@ -782,7 +781,7 @@ BOOL __stdcall StopDependentServices(SC_HANDLE schSCManager, SC_HANDLE schServic
     return TRUE;
 }
 
-VOID __stdcall DoStopSvc()
+VOID __stdcall DoStopSvc(LPCTSTR lpszServiceName)
 {
     SERVICE_STATUS_PROCESS ssp;
     DWORD dwStartTime = GetTickCount();
@@ -807,7 +806,7 @@ VOID __stdcall DoStopSvc()
 
     SC_HANDLE schService = OpenService(
         schSCManager,         // SCM database
-        szSvcNameW,            // name of service
+        lpszServiceName,            // name of service
         SERVICE_STOP |
         SERVICE_QUERY_STATUS |
         SERVICE_ENUMERATE_DEPENDENTS);
@@ -942,7 +941,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
     }
     ULONG* NTEContexts = (ULONG*)HeapAlloc(heap, HEAP_GENERATE_EXCEPTIONS, sizeof(ULONG) * lpThreadParameters->vecstrIPs.size());
     if (NULL == NTEContexts) {
-        SendLogLine(L"IPLoopMain(): Cannot allocate NTE Contexts! LastError=0x%X", GetLastError());    
+        SendLogLine(L"IPLoopMain(): Cannot allocate NTE Contexts! LastError=0x%X", GetLastError());
         return 1;
     }
 
@@ -1005,11 +1004,11 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
     class ServiceGuard
     {
     public:
-        ServiceGuard()
+        ServiceGuard(LPCTSTR lpszServiceName) : m_strServiceName(lpszServiceName)
         {
             ::SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service ...");
 
-            ::DoStopSvc();
+            ::DoStopSvc(m_strServiceName.c_str());
 
             ::SendLogLine(L"ServiceGuard::ServiceGuard(): Stop service done.");
         }
@@ -1018,20 +1017,25 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         {
             ::SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service ...");
 
-            ::DoStartSvc();
+            ::DoStartSvc(m_strServiceName.c_str());
 
             ::SendLogLine(L"ServiceGuard::~ServiceGuard(): Start service done.");
         }
+
+    private:
+        tstring const m_strServiceName;
     };
     std::unique_ptr<ServiceGuard> service_guard_sp;
 
 
-    if (lpThreadParameters->bTiaPortalSupport)
+
+    if (lpThreadParameters->spService && !lpThreadParameters->spService->vecstrIPs.empty())
     {
         SendLogLine(L"IPLoopMain(): Check the presence of the service local address ...");
 
 //        ListeningPortPresenceChecker listening_port_presence_checker(szSvcLocalAddressAndPortA);
-        ListeningPortPresenceChecker2 listening_port_presence_checker(szSvcLocalAddress, usSvcLocalPort);
+        std::vector<tstring> vecstrSvcLocalAddressesCP({ szSvcLocalAddress });
+        ListeningPortPresenceChecker2 listening_port_presence_checker(vecstrSvcLocalAddressesCP, lpThreadParameters->spService->usPort);
 
         listening_port_presence_checker.Start();
         while (listening_port_presence_checker.IsInProgress())
@@ -1039,18 +1043,19 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             Sleep(1000);
             listening_port_presence_checker.CheckResult();
         }
-        if (listening_port_presence_checker.IsListeningPortFound())
+        if (vecstrSvcLocalAddressesCP.empty())
         {
             SendLogLine(L"IPLoopMain(): The service local address is present.");
 
-            service_guard_sp = std::make_unique<ServiceGuard>();
+            service_guard_sp = std::make_unique<ServiceGuard>(lpThreadParameters->spService->strName.c_str());
 
             SendLogLine(L"IPLoopMain(): Check the nonpresence of the service local address ...");
 
             while (true)
             {
 //                ListeningPortPresenceChecker listening_port_nonpresence_checker(szSvcLocalAddressAndPortA);
-                ListeningPortPresenceChecker2 listening_port_nonpresence_checker(szSvcLocalAddress, usSvcLocalPort);
+                std::vector<tstring> vecstrSvcLocalAddressesCNP({ szSvcLocalAddress });
+                ListeningPortPresenceChecker2 listening_port_nonpresence_checker(vecstrSvcLocalAddressesCNP, lpThreadParameters->spService->usPort);
 
                 listening_port_nonpresence_checker.Start();
                 while (listening_port_nonpresence_checker.IsInProgress())
@@ -1058,7 +1063,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
                     Sleep(1000);
                     listening_port_nonpresence_checker.CheckResult();
                 }
-                if (!listening_port_nonpresence_checker.IsListeningPortFound())
+                if (!vecstrSvcLocalAddressesCNP.empty())
                 {
                     SendLogLine(L"IPLoopMain(): The local address of the service is no longer present.");
 
@@ -1072,13 +1077,14 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
     }
 
-    tstring strWALLIXPuTTYLocalAddress;
+//    std::vector<tstring> strWALLIXPuTTYLocalAddresses;
 
-    std::string strWALLIXPuTTYLocalAddressAndPortA;
+//    std::string strWALLIXPuTTYLocalAddressAndPortA;
 
     for (size_t i = 0; i < lpThreadParameters->vecstrIPs.size(); i++) {
         SendLogLine(L"IPLoopMain(): Hostname=\"%s\" (%d)", lpThreadParameters->vecstrIPs[i].c_str(), i);
 
+/*
         if (service_guard_sp)
         {
             SendLogLine(L"IPLoopMain(): Generate WALLIX-PuTTY local address.");
@@ -1095,6 +1101,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             SendLogLine(L"IPLoopMain(): WALLIXPuTTYLocalAddress=\"%s\"",
                 strWALLIXPuTTYLocalAddressAndPortW.c_str());
         }
+*/
 
         PADDRINFOW resAddr;
         DWORD ret = GetAddrInfoW(lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
@@ -1125,7 +1132,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             CloseHandle(event_p2i);
             SendLogLine(L"IPLoopMain(): IP address is already mapped to loopback interface!");
         }
-        else 
+        else
         {
             unmap(NTEContexts, nbContexts);
             if (event_i2p) {
@@ -1145,6 +1152,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
 
     SendLogLine(L"IPLoopMain(): Wait for event (P2I) ...");
 
+    std::vector<std::wstring> vecstrExpectedTiaIPs = lpThreadParameters->spService->vecstrIPs;
+
     while (true)
     {
         if (service_guard_sp)
@@ -1152,7 +1161,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             SendLogLine(L"IPLoopMain(): Check the presence of the WALLIX-PuTTY local address ...");
 
 //            ListeningPortPresenceChecker listening_port_presence_checker(strWALLIXPuTTYLocalAddressAndPortA.c_str());
-            ListeningPortPresenceChecker2 listening_port_presence_checker(strWALLIXPuTTYLocalAddress.c_str(), 102);
+            ListeningPortPresenceChecker2 listening_port_presence_checker(vecstrExpectedTiaIPs, 102);
 
             listening_port_presence_checker.Start();
             while (listening_port_presence_checker.IsInProgress())
@@ -1160,22 +1169,34 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
                 Sleep(1000);
                 listening_port_presence_checker.CheckResult();
             }
-            if (listening_port_presence_checker.IsListeningPortFound())
+            if (vecstrExpectedTiaIPs.empty())
             {
-                SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local address is present.");
+                SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local addresses are present.");
 
                 service_guard_sp.reset(nullptr);
             }
             else
             {
-                SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local address is not present.");
+                Sleep(1000);
             }
         }
 
-        DWORD const dwWaitResult = WaitForSingleObject(event_p2i, 1000);
+        DWORD dwHandleCount = 1;
+        HANDLE Handles[2]{ event_p2i };
+        if (lpThreadParameters->hParentProcess) {
+            Handles[dwHandleCount++] = lpThreadParameters->hParentProcess;
+        }
+//        DWORD const dwWaitResult = WaitForSingleObject(event_p2i, 1000);
+        DWORD const dwWaitResult = WaitForMultipleObjects(dwHandleCount, Handles, FALSE, 1000);
         if (WAIT_OBJECT_0 == dwWaitResult)
         {
             SendLogLine(L"IPLoopMain(): Event (P2I) signaled.");
+
+            break;
+        }
+        if (WAIT_OBJECT_0 + 1 == dwWaitResult)
+        {
+            SendLogLine(L"IPLoopMain(): Parent process exited.");
 
             break;
         }

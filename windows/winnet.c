@@ -1918,7 +1918,7 @@ int unmap_ip_from_loopback(struct iploop *ipl) {
 	return ret == FALSE;
 }
 
-int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) {
+int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, char** addrTia, int nTia) {
 
     OutputDebugStringW(L"map_ip_to_loopback(): ...");
 
@@ -1991,15 +1991,16 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 
     #define MAX_HOSTNAME 255
 
+    wchar_t szServiceNamePort[] = L" /service s7oiehsx64,102,";
+
 	size_t size = wcslen(eventNameBase);
 	for (int i = 0; i < n; i++) {
 		size += 1 + /*strlen(addr[i])*/MAX_HOSTNAME;
 	}
     size += 1;
-	if (tia_portal)
-	{
-		size += 5;	// "/tia"
-	}
+
+    size += _tcslen(szServiceNamePort) + nTia * (1 + MAX_HOSTNAME);
+    size += 1;
 
     BOOL bWALLIX_UT_DEBUG = FALSE;
     {
@@ -2022,8 +2023,11 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 
 	wchar_t *szCmdline = (wchar_t *)malloc((size + 256) * sizeof(wchar_t));
 	wcscpy(szCmdline, eventNameBase);
-	for (int i = 0; i < n; i++) {
-		wcscat(szCmdline, L" ");
+    wcscat(szCmdline, L" ");
+    for (int i = 0; i < n; i++) {
+        if (i) {
+            wcscat(szCmdline, L",");
+        }
         wchar_t tmpaddr[MAX_HOSTNAME] = { 0 };
 		if (MultiByteToWideChar(CP_ACP, 0, addr[i], -1, tmpaddr, _countof(tmpaddr)) == 0) {
 			DWORD err = GetLastError();
@@ -2033,10 +2037,21 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 		wcscat(szCmdline, tmpaddr);
 	}
 
-	if (tia_portal)
-	{
-		wcscat(szCmdline, L" /tia");
-	}
+    for (int i = 0; i < nTia; i++) {
+        if (i) {
+            wcscat(szCmdline, L",");
+        }
+        else {
+            wcscat(szCmdline, szServiceNamePort);
+        }
+        wchar_t tmpaddr[MAX_HOSTNAME] = { 0 };
+        if (MultiByteToWideChar(CP_ACP, 0, addrTia[i], -1, tmpaddr, _countof(tmpaddr)) == 0) {
+            DWORD err = GetLastError();
+            free(szCmdline);
+            return err;
+        }
+        wcscat(szCmdline, tmpaddr);
+    }
 
     if (bWALLIX_UT_DEBUG)
     {
@@ -2061,7 +2076,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
 	}
 
     SHELLEXECUTEINFOW ShellExecuteInfoW;
-    
+
     ZeroMemory(&ShellExecuteInfoW, sizeof(ShellExecuteInfoW));
 
     ShellExecuteInfoW.cbSize       = sizeof(ShellExecuteInfoW);
@@ -2073,7 +2088,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, bool tia_portal) 
     ShellExecuteInfoW.lpDirectory  = dirName;
     ShellExecuteInfoW.nShow        = SW_SHOWNA;
 
-	// Create the child process. 
+	// Create the child process.
     ShellExecuteExW(&ShellExecuteInfoW);
     DWORD err = ShellExecuteInfoW.hInstApp;
 	if (err < 32) {

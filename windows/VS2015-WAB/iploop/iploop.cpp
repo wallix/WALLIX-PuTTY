@@ -58,6 +58,29 @@ bool RaiseEndEvent(LPCTSTR lpszBaseEventName, LPCTSTR lpszMsgBoxTitle)
     return true;
 }
 
+
+std::vector<tstring> STRSplitIntoVector(_In_ LPCTSTR lpsz,
+    _In_ LPCTSTR lpszDelimit)
+{
+    tstring str = lpsz;
+
+    std::vector<tstring> ret;
+
+    if (lpsz && lpszDelimit)
+    {
+        LPTSTR lpszNextToken = nullptr;
+        LPTSTR lpszToken = ::_tcstok_s(&str.front(), lpszDelimit, &lpszNextToken);
+        while (lpszToken)
+        {
+            ret.push_back(lpszToken);
+            lpszToken = ::_tcstok_s(nullptr, lpszDelimit, &lpszNextToken);
+        }   // while (lpszToken)
+    }   // if (lpsz && lpszDelimit)
+
+    return ret;
+}   // std::vector<tstring> STRSplitIntoVector(_In_ LPCTSTR lpsz,
+    //     _In_ LPCTSTR lpszDelimit)
+
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPTSTR    lpCmdLine,
@@ -67,6 +90,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
     // TODO: Place code here.
     OutputDebugString(lpCmdLine);
+    OutputDebugString(TEXT("\n"));
 
     // Initialize global strings
     LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -77,8 +101,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         MessageBox(NULL, _T("Cannot parse command line!"), szTitle, MB_ICONERROR | MB_OK);
         return FALSE;
     }
-    if (nArgs < 2) {
-        MessageBox(NULL, _T("iploop event_name ip1 [ip2 [...]] [/tia] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
+    if (nArgs < 3) {
+        MessageBox(NULL, _T("iploop.exe event_name addr1,[addr2[,...]] [/service name,port,addr1[,addr2[,...]] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
+
         LocalFree(szArglistW);
         return FALSE;
     }
@@ -86,7 +111,16 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
     parameters.strEventNameBase = szArglistW[0];
     parameters.dwGUIThreadId    = GetCurrentThreadId();
 
-    for (int i = 1; i < nArgs; ++i)
+    {
+        std::vector<tstring> ips = STRSplitIntoVector(szArglistW[1], _T(","));
+
+        for (tstring& ip : ips)
+        {
+            parameters.vecstrIPs.emplace_back(std::move(ip));
+        }
+    }
+
+    for (int i = 2; i < nArgs; ++i)
     {
         if (!lstrcmpi(szArglistW[i], L"/begin-standalone"))
         {
@@ -116,11 +150,39 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                 return FALSE;
             }
         }
-        else if (!lstrcmpi(szArglistW[i], L"/tia"))
+        else if (StrStrI(szArglistW[i], L"/service") == szArglistW[i])
         {
-            OutputDebugStringW(L"_tWinMain(): Enable TIA portal support.");
+            if (i < nArgs - 1)
+            {
+                ++i;
 
-            parameters.bTiaPortalSupport = true;
+                std::vector<tstring> items = STRSplitIntoVector(szArglistW[i], _T(","));
+
+                if (items.size() < 2)
+                {
+                    MessageBox(NULL, _T("Please provide name and IP port of service!"), szTitle, MB_ICONERROR | MB_OK);
+                    LocalFree(szArglistW);
+                    return FALSE;
+                }
+
+                std::vector<tstring> vecstrServiceIPs;
+
+                for (int i = 2, c = items.size(); i < c; i++)
+                {
+                    vecstrServiceIPs.emplace_back(std::move(items[i]));
+                }
+
+                parameters.spService = std::make_unique<ManagedService>();
+                parameters.spService->strName   = std::move(items[0]);
+                parameters.spService->usPort    = _ttoi(items[1].c_str());
+                parameters.spService->vecstrIPs = std::move(vecstrServiceIPs);
+            }
+            else
+            {
+                MessageBox(NULL, _T("Please provide service parameters!"), szTitle, MB_ICONERROR | MB_OK);
+                LocalFree(szArglistW);
+                return FALSE;
+            }
         }
         else if (!lstrcmpi(szArglistW[i], L"/window"))
         {
@@ -132,7 +194,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                 DWORD dwParentWnd = 0;
                 iss >> dwParentWnd;
                 hwndParent = reinterpret_cast<HWND>(dwParentWnd);
-            }                
+            }
             else
             {
                 MessageBox(NULL, _T("Please provide handle of parent window!"), szTitle, MB_ICONERROR | MB_OK);
@@ -149,9 +211,14 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
             LocalFree(szArglistW);
             return FALSE;
         }
-        else if (std::find(parameters.vecstrIPs.begin(), parameters.vecstrIPs.end(), szArglistW[i]) == parameters.vecstrIPs.end())
+        else
         {
-            parameters.vecstrIPs.emplace_back(szArglistW[i]);
+            std::wstring strMessageW;
+            strMessageW = L"Unknown command-line parameter: ";
+            strMessageW += szArglistW[i];
+            MessageBoxW(NULL, strMessageW.c_str(), szTitle, MB_ICONERROR | MB_OK);
+            LocalFree(szArglistW);
+            return FALSE;
         }
     }
 
