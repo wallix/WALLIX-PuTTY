@@ -30,224 +30,9 @@
 #include "strutils.h"
 #include "sysutils.h"
 
-//int error(const wchar_t* message, DWORD code);
-
 static const wchar_t* appname = L"WALLIX PuTYY IP Loopback Manager";
 
-//static char           szSvcLocalAddressAndPortA[] = "0.0.0.0:102";
 static TCHAR          szSvcLocalAddress[]         = _T("0.0.0.0");
-//static unsigned short usSvcLocalPort              = 102;
-
-//static wchar_t szSvcNameW[] = L"s7oiehsx64";
-
-/*
-class ListeningPortPresenceChecker
-{
-    UniqueProcess m_shProcess;
-
-    UniqueFile m_shStdInRead;
-    UniqueFile m_shStdInWrite;
-    UniqueFile m_shStdOutRead;
-    UniqueFile m_shStdOutWrite;
-    UniqueFile m_shStdErrRead;
-    UniqueFile m_shStdErrWrite;
-
-    bool m_bListeningPortFound = false;
-
-    const std::string m_strLocalAddressA;
-
-public:
-    ListeningPortPresenceChecker(const char * pszLocalAddressA) :
-        m_strLocalAddressA(pszLocalAddressA)
-    {
-        char szDebugStringA[256];
-        ::_snprintf(szDebugStringA, _countof(szDebugStringA),
-            "ListeningPortPresenceChecker::ListeningPortPresenceChecker(): LocalAddress=\"%s\"",
-            m_strLocalAddressA.c_str());
-        ::OutputDebugStringA(szDebugStringA);
-    }
-
-    bool IsInProgress() const
-    {
-        return static_cast<bool>(m_shProcess);
-    }
-
-    bool IsListeningPortFound() const
-    {
-        return m_bListeningPortFound;
-    }
-
-    void CheckResult()
-    {
-        ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ..."));
-
-        if (!IsInProgress())
-        {
-            assert(false);
-
-            ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
-                _T("The checker is not in-progress! Return"));
-
-            return;
-        }   // if (!IsInProgress())
-
-        if (WAIT_OBJECT_0 == ::WaitForSingleObject(m_shProcess.Get(), 0))
-        {
-            ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
-                _T("The process object is signaled."));
-
-            char szOutputData[32768];
-
-            ::ZeroMemory(szOutputData, sizeof(szOutputData));
-
-            DWORD const dwNumberOfBytesToRead = sizeof(szOutputData);
-            DWORD       dwNumberOfBytesRead   = 0;
-
-            LPOVERLAPPED lpOverlapped = nullptr;
-
-            if (::ReadFile(m_shStdOutRead.Get(), szOutputData,
-                    dwNumberOfBytesToRead, &dwNumberOfBytesRead,
-                    lpOverlapped))
-            {
-                if (dwNumberOfBytesRead < dwNumberOfBytesToRead)
-                    ParseResult(szOutputData);
-                else    // if (dwNumberOfBytesRead < dwNumberOfBytesToRead)
-                {
-                    ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
-                        _T("The data area passed to a system call is too small! (STDOUT)"));
-                }   // if (dwNumberOfBytesRead < dwNumberOfBytesToRead)
-            }
-            else    // if (::ReadFile(m_shStdOutRead.Get(), szOutputData,
-            {
-                DWORD const dwLastError = ::GetLastError();
-                ::SendLogLine(_T("ListeningPortPresenceChecker::CheckResult(): ")
-                        _T("Failed to read anonymous pipe! (STDOUT)")
-                        _T("LastError=\"%s\"(%u)"),
-                    static_cast<LPCTSTR>(::SYSGetErrorMessageW(dwLastError)),
-                    dwLastError);
-            }   // if (::ReadFile(m_shStdOutRead.Get(), szOutputData,
-
-            m_shProcess.Reset();
-
-            m_shStdInRead.Reset();
-            m_shStdInWrite.Reset();
-            m_shStdOutRead.Reset();
-            m_shStdOutWrite.Reset();
-            m_shStdErrRead.Reset();
-            m_shStdErrWrite.Reset();
-        }   // if (WAIT_OBJECT_0 == ::WaitForSingleObject(m_shProcess.Get(), 0))
-
-        ::SendLogLine(L"ListeningPortPresenceChecker::CheckResult(): Done. "
-            L"AlwaysInProgress=%s",
-            (IsInProgress() ? L"yes" : L"no"));
-    }
-
-private:
-    void ParseResult(LPCSTR lpszResultA)
-    {
-        ::SendLogLine(_T("ListeningPortPresenceChecker::ParseResult(): ..."));
-
-        std::istringstream issA(lpszResultA);
-
-        std::string lineA;
-
-        while (std::getline(issA, lineA))
-        {
-            std::stringstream ssA(lineA);
-
-            std::istream_iterator<std::string> begin(ssA);
-            std::istream_iterator<std::string> end;
-            std::vector<std::string> vstringsA(begin, end);
-
-            if (vstringsA.size() == 5 &&
-                !::_stricmp("TCP", vstringsA[0].c_str()) &&
-                !::_stricmp(m_strLocalAddressA.c_str(), vstringsA[1].c_str()) &&
-                (!::_stricmp("LISTENING", vstringsA[3].c_str()) ||
-//                 !::strcmp("ABHÖREN", vstringsA[3].c_str()) ||
-                 !::strncmp("ABH", vstringsA[3].c_str(), 3)))
-            {
-                ::SendLogLine(
-                    _T("ListeningPortPresenceChecker::ParseResult(): ")
-                        _T("Listening address/port is found."));
-
-                DWORD pid = ::atoi(vstringsA[4].c_str());
-
-                ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): "
-                    L"PID=%u",
-                    pid);
-
-                std::wstring strNameW;
-                if (::SYSGetProcessNameByIdW(strNameW, pid))
-                {
-                    ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): "
-                        L"ProcessName=\"%s\"",
-                        strNameW.c_str());
-
-                    if (!::lstrcmpiW(strNameW.c_str(), L"svchost.exe"))
-                    {
-                        m_bListeningPortFound = true;
-                    }
-                }
-
-                m_bListeningPortFound = true;
-            }
-        }
-
-        ::SendLogLine(L"ListeningPortPresenceChecker::ParseResult(): Done. "
-            L"ListeningPortFound=%s",
-            (m_bListeningPortFound ? L"yes" : L"no"));
-    }
-
-public:
-    void Start()
-    {
-        ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): ..."));
-
-        if (IsInProgress())
-        {
-            assert(false);
-
-            ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): ")
-                    _T("The task is already in-progress! Return"));
-
-            return;
-        }   // if (IsInProgress())
-
-        LPCWSTR      lpszApplicationNameW  = nullptr;
-        std::wstring strCommandLineW       =
-            L"NETSTAT.EXE -ano -p tcp";
-        LPCWSTR      lpszCurrentDirectoryW = nullptr;
-
-        ::SendLogLine(L"ListeningPortPresenceChecker::Start(): "
-                L"CommandLine=\"%s\"",
-            strCommandLineW.c_str());
-
-        DWORD dwProcessId = 0;
-        DWORD dwLastError = ERROR_SUCCESS;
-
-        m_shProcess.Reset(
-                ::SYSRunProcessWithRedirectedIOW(
-                        lpszApplicationNameW, strCommandLineW.c_str(),
-                        lpszCurrentDirectoryW,
-                        m_shStdInRead, m_shStdInWrite,
-                        m_shStdOutRead, m_shStdOutWrite,
-                        m_shStdErrRead, m_shStdErrWrite,
-                        dwProcessId, dwLastError
-                    )
-            );
-        if (!m_shProcess || (ERROR_SUCCESS != dwLastError))
-        {
-            ::SendLogLine(L"ListeningPortPresenceChecker::Start(): "
-                    L"Failed to create child process! "
-                    L"LastError=\"%s\"(%u)",
-                static_cast<LPCWSTR>(::SYSGetErrorMessageW(dwLastError)),
-                dwLastError);
-        }   // if (!m_shProcess || (ERROR_SUCCESS != dwLastError))
-
-        ::SendLogLine(_T("ListeningPortPresenceChecker::Start(): Done."));
-    }
-};
-*/
 
 class ListeningPortPresenceChecker2
 {
@@ -1077,31 +862,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
     }
 
-//    std::vector<tstring> strWALLIXPuTTYLocalAddresses;
-
-//    std::string strWALLIXPuTTYLocalAddressAndPortA;
-
     for (size_t i = 0; i < lpThreadParameters->vecstrIPs.size(); i++) {
         SendLogLine(L"IPLoopMain(): Hostname=\"%s\" (%d)", lpThreadParameters->vecstrIPs[i].c_str(), i);
-
-/*
-        if (service_guard_sp)
-        {
-            SendLogLine(L"IPLoopMain(): Generate WALLIX-PuTTY local address.");
-
-            strWALLIXPuTTYLocalAddress = lpThreadParameters->vecstrIPs[i];
-
-            std::wstring strWALLIXPuTTYLocalAddressAndPortW = lpThreadParameters->vecstrIPs[i];
-            strWALLIXPuTTYLocalAddressAndPortW += L":102";
-
-            size_t ulNumberOfBytesWritten;
-            STRWideCharToAnsi(strWALLIXPuTTYLocalAddressAndPortW.c_str(), strWALLIXPuTTYLocalAddressAndPortA,
-                ulNumberOfBytesWritten);
-
-            SendLogLine(L"IPLoopMain(): WALLIXPuTTYLocalAddress=\"%s\"",
-                strWALLIXPuTTYLocalAddressAndPortW.c_str());
-        }
-*/
 
         PADDRINFOW resAddr;
         DWORD ret = GetAddrInfoW(lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
@@ -1152,7 +914,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
 
     SendLogLine(L"IPLoopMain(): Wait for event (P2I) ...");
 
-    std::vector<std::wstring> vecstrExpectedTiaIPs = lpThreadParameters->spService->vecstrIPs;
+    std::vector<std::wstring> vecstrExpectedServiceIPs = lpThreadParameters->spService->vecstrIPs;
 
     while (true)
     {
@@ -1161,7 +923,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
             SendLogLine(L"IPLoopMain(): Check the presence of the WALLIX-PuTTY local address ...");
 
 //            ListeningPortPresenceChecker listening_port_presence_checker(strWALLIXPuTTYLocalAddressAndPortA.c_str());
-            ListeningPortPresenceChecker2 listening_port_presence_checker(vecstrExpectedTiaIPs, 102);
+            ListeningPortPresenceChecker2 listening_port_presence_checker(vecstrExpectedServiceIPs, lpThreadParameters->spService->usPort);
 
             listening_port_presence_checker.Start();
             while (listening_port_presence_checker.IsInProgress())
@@ -1169,7 +931,7 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
                 Sleep(1000);
                 listening_port_presence_checker.CheckResult();
             }
-            if (vecstrExpectedTiaIPs.empty())
+            if (vecstrExpectedServiceIPs.empty())
             {
                 SendLogLine(L"IPLoopMain(): The WALLIX-PuTTY local addresses are present.");
 

@@ -1991,7 +1991,7 @@ int map_ip_to_loopback(struct iploop *ipl, char** addr, int n, char** addrTia, i
 
     #define MAX_HOSTNAME 255
 
-    wchar_t szServiceNamePort[] = L" /service s7oiehsx64,102,";
+    wchar_t szServiceNamePort[] = L" /service s7oiehsx64 102 ";
 
 	size_t size = wcslen(eventNameBase);
 	for (int i = 0; i < n; i++) {

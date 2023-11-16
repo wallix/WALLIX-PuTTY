@@ -102,7 +102,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
     if (nArgs < 3) {
-        MessageBox(NULL, _T("iploop.exe event_name addr1,[addr2[,...]] [/service name,port,addr1[,addr2[,...]] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
+        MessageBox(NULL, _T("iploop.exe event_name ip1,[ip2[,...]] [/service s_name s_port s_ip1[,s_ip2[,...]] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
 
         LocalFree(szArglistW);
         return FALSE;
@@ -152,29 +152,26 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         }
         else if (StrStrI(szArglistW[i], L"/service") == szArglistW[i])
         {
-            if (i < nArgs - 1)
+            if (i < nArgs - 3)
             {
+                ++i;
+
+                parameters.spService = std::make_unique<ManagedService>();
+
+                parameters.spService->strName = std::move(szArglistW[i]);
+                ++i;
+
+                parameters.spService->usPort = _ttoi(szArglistW[i]);
                 ++i;
 
                 std::vector<tstring> items = STRSplitIntoVector(szArglistW[i], _T(","));
 
-                if (items.size() < 2)
-                {
-                    MessageBox(NULL, _T("Please provide name and IP port of service!"), szTitle, MB_ICONERROR | MB_OK);
-                    LocalFree(szArglistW);
-                    return FALSE;
-                }
-
                 std::vector<tstring> vecstrServiceIPs;
-
-                for (int i = 2, c = items.size(); i < c; i++)
+                for (int i = 0, c = items.size(); i < c; i++)
                 {
                     vecstrServiceIPs.emplace_back(std::move(items[i]));
                 }
 
-                parameters.spService = std::make_unique<ManagedService>();
-                parameters.spService->strName   = std::move(items[0]);
-                parameters.spService->usPort    = _ttoi(items[1].c_str());
                 parameters.spService->vecstrIPs = std::move(vecstrServiceIPs);
             }
             else
