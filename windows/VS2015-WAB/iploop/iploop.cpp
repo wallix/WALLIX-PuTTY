@@ -101,7 +101,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
         MessageBox(NULL, _T("Cannot parse command line!"), szTitle, MB_ICONERROR | MB_OK);
         return FALSE;
     }
-    if (nArgs < 3) {
+    if (nArgs < 2) {
         MessageBox(NULL, _T("iploop.exe event_name ip1,[ip2[,...]] [/service s_name s_port s_ip1[,s_ip2[,...]] [/parent process_id] [/window parent_wnd] [/begin-standalone | /end-standalone]"), szTitle, MB_ICONERROR | MB_OK);
 
         LocalFree(szArglistW);
@@ -437,8 +437,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 SendMessage(hwndEdit, EM_SETSEL, nIndex, nIndex);
                 SendMessage(hwndEdit, EM_REPLACESEL, 0, (LPARAM)strLogLinesTemp.c_str());
-
-                SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
             }
         }
 

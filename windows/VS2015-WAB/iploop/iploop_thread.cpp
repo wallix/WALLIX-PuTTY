@@ -868,13 +868,8 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         PADDRINFOW resAddr;
         DWORD ret = GetAddrInfoW(lpThreadParameters->vecstrIPs[i].c_str(), NULL, &hints, &resAddr);
         if (ret != 0) {
-            unmap(NTEContexts, nbContexts);
-            if (event_i2p) {
-                CloseHandle(event_i2p);
-            }
-            CloseHandle(event_p2i);
             SendLogLine(_T("IPLoopMain(): Failed to translate hostname (\"%s\") to address!"), lpThreadParameters->vecstrIPs[i].c_str());
-            return 1;
+            continue;
         }
         ULONG NTEInstance = 0;
         IN_ADDR *sin = (IN_ADDR*)(resAddr->ai_addr->sa_data + 2);
@@ -887,22 +882,11 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
         }
         else if (ret == ERROR_OBJECT_ALREADY_EXISTS)
         {
-            unmap(NTEContexts, nbContexts);
-            if (event_i2p) {
-                CloseHandle(event_i2p);
-            }
-            CloseHandle(event_p2i);
-            SendLogLine(L"IPLoopMain(): IP address is already mapped to loopback interface!");
+            SendLogLine(L"IPLoopMain(): IP address (for hostname \"%s\") is already mapped to loopback interface!", lpThreadParameters->vecstrIPs[i].c_str());
         }
         else
         {
-            unmap(NTEContexts, nbContexts);
-            if (event_i2p) {
-                CloseHandle(event_i2p);
-            }
-            CloseHandle(event_p2i);
-            SendLogLine(L"IPLoopMain(): Cannot map IP address to loopback interface!");
-            return 1;
+            SendLogLine(L"IPLoopMain(): Cannot map IP address (for hostname \"%s\") to loopback interface!", lpThreadParameters->vecstrIPs[i].c_str());
         }
     }
 
@@ -914,7 +898,10 @@ int WINAPI_wWinMain(IPLoopThreadParameter const* const lpThreadParameters) {
 
     SendLogLine(L"IPLoopMain(): Wait for event (P2I) ...");
 
-    std::vector<std::wstring> vecstrExpectedServiceIPs = lpThreadParameters->spService->vecstrIPs;
+    std::vector<std::wstring> vecstrExpectedServiceIPs;
+    if (lpThreadParameters->spService) {
+        vecstrExpectedServiceIPs = lpThreadParameters->spService->vecstrIPs;
+    }
 
     while (true)
     {
