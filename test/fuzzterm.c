@@ -21,7 +21,9 @@ int main(int argc, char **argv)
 
     conf = conf_new();
     do_defaults(NULL, conf);
-    init_ucs_generic(conf, &ucsdata);
+    init_ucs(&ucsdata, conf_get_str(conf, CONF_line_codepage),
+             conf_get_bool(conf, CONF_utf8_override),
+             CS_NONE, conf_get_int(conf, CONF_vtmode));
 
     term = term_init(conf, &ucsdata, &termwin);
     term_size(term, 24, 80, 10000);
@@ -119,7 +121,10 @@ static const TermWinVtable fuzz_termwin_vt = {
 
 void ldisc_send(Ldisc *ldisc, const void *buf, int len, bool interactive) {}
 void ldisc_echoedit_update(Ldisc *ldisc) {}
-void ldisc_provide_userpass_le(Ldisc *ldisc, TermLineEditor *le)
+bool ldisc_has_input_buffered(Ldisc *ldisc) { return false; }
+LdiscInputToken ldisc_get_input_token(Ldisc *ldisc)
+{ unreachable("This fake ldisc never has any buffered input"); }
+void ldisc_enable_prompt_callback(Ldisc *ldisc, prompts_t *p)
 { unreachable("This fake ldisc should never be used for user/pass prompts"); }
 void modalfatalbox(const char *fmt, ...) { exit(0); }
 void nonfatal(const char *fmt, ...) { }
@@ -196,7 +201,7 @@ int platform_default_i(const char *name, int def)
 
 FontSpec *platform_default_fontspec(const char *name)
 {
-    return fontspec_new_default();
+    return fontspec_new("");
 }
 
 Filename *platform_default_filename(const char *name)

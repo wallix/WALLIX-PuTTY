@@ -60,12 +60,10 @@ struct Filename {
 };
 FILE *f_open(const struct Filename *, char const *, bool);
 
-#ifndef SUPERSEDE_FONTSPEC_FOR_TESTING
 struct FontSpec {
     char *name;    /* may be "" to indicate no selected font at all */
 };
 struct FontSpec *fontspec_new(const char *name);
-#endif
 
 extern const struct BackendVtable pty_backend;
 
@@ -83,8 +81,6 @@ extern const struct BackendVtable pty_backend;
 typedef void *HelpCtx;
 #define NULL_HELPCTX ((HelpCtx)NULL)
 #define HELPCTX(x) NULL
-
-typedef const char *FILESELECT_FILTER_TYPE;
 #define FILTER_KEY_FILES NULL          /* FIXME */
 #define FILTER_DYNLIB_FILES NULL       /* FIXME */
 
@@ -336,8 +332,6 @@ void gtk_setup_config_box(
  */
 #define DEFAULT_CODEPAGE 0xFFFF
 #define CP_UTF8 CS_UTF8                /* from libcharset */
-#define CP_437 CS_CP437                /* used for test suites */
-#define CP_ISO8859_1 CS_ISO8859_1      /* used for test suites */
 
 #define strnicmp strncasecmp
 #define stricmp strcasecmp

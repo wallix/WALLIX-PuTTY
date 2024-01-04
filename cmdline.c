@@ -130,15 +130,10 @@ SeatPromptResult cmdline_get_passwd_input(
     return SPR_OK;
 }
 
-static void cmdline_report_unavailable(const char *p)
-{
-    cmdline_error("option \"%s\" not available in this tool", p);
-}
-
 static bool cmdline_check_unavailable(int flag, const char *p)
 {
     if (cmdline_tooltype & flag) {
-        cmdline_report_unavailable(p);
+        cmdline_error("option \"%s\" not available in this tool", p);
         return true;
     }
     return false;
@@ -909,35 +904,6 @@ int cmdline_process_param(const char *p, char *value,
         SAVEABLE(0);
         conf_set_int(conf, CONF_proxy_type, PROXY_CMD);
         conf_set_str(conf, CONF_proxy_telnet_command, value);
-    }
-
-    if (!strcmp(p, "-batch")) {
-        RETURN(1);
-        SAVEABLE(0);
-        if (!console_set_batch_mode(true)) {
-            cmdline_report_unavailable(p);
-            return ret;
-        }
-    }
-
-    if (!strcmp(p, "-legacy-stdio-prompts") ||
-        !strcmp(p, "-legacy_stdio_prompts")) {
-        RETURN(1);
-        SAVEABLE(0);
-        if (!console_set_stdio_prompts(true)) {
-            cmdline_report_unavailable(p);
-            return ret;
-        }
-    }
-
-    if (!strcmp(p, "-legacy-charset-handling") ||
-        !strcmp(p, "-legacy_charset_handling")) {
-        RETURN(1);
-        SAVEABLE(0);
-        if (!set_legacy_charset_handling(true)) {
-            cmdline_report_unavailable(p);
-            return ret;
-        }
     }
 
 #ifdef _WINDOWS

@@ -86,14 +86,14 @@ static inline uint64_t uint64_from_words(uint32_t hi, uint32_t lo)
     uli.QuadPart = ((ULONGLONG)(t) + 11644473600ull) * 10000000ull; \
     (ft).dwLowDateTime  = uli.LowPart; \
     (ft).dwHighDateTime = uli.HighPart; \
-} while (0)
+} while(0)
 #define TIME_WIN_TO_POSIX(ft, t) do { \
     ULARGE_INTEGER uli; \
     uli.LowPart  = (ft).dwLowDateTime; \
     uli.HighPart = (ft).dwHighDateTime; \
     uli.QuadPart = uli.QuadPart / 10000000ull - 11644473600ull; \
     (t) = (unsigned long) uli.QuadPart; \
-} while (0)
+} while(0)
 
 struct RFile {
     HANDLE h;
@@ -104,15 +104,15 @@ RFile *open_existing_file(const char *name, uint64_t *size,
                           long *perms)
 {
     HANDLE h;
-    RFile *f;
+    RFile *ret;
 
     h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL,
                    OPEN_EXISTING, 0, 0);
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
-    f = snew(RFile);
-    f->h = h;
+    ret = snew(RFile);
+    ret->h = h;
 
     if (size) {
         DWORD lo, hi;
@@ -132,7 +132,7 @@ RFile *open_existing_file(const char *name, uint64_t *size,
     if (perms)
         *perms = -1;
 
-    return f;
+    return ret;
 }
 
 int read_from_file(RFile *f, void *buffer, int length)
@@ -157,31 +157,31 @@ struct WFile {
 WFile *open_new_file(const char *name, long perms)
 {
     HANDLE h;
-    WFile *f;
+    WFile *ret;
 
     h = CreateFile(name, GENERIC_WRITE, 0, NULL,
                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
-    f = snew(WFile);
-    f->h = h;
+    ret = snew(WFile);
+    ret->h = h;
 
-    return f;
+    return ret;
 }
 
 WFile *open_existing_wfile(const char *name, uint64_t *size)
 {
     HANDLE h;
-    WFile *f;
+    WFile *ret;
 
     h = CreateFile(name, GENERIC_WRITE, FILE_SHARE_READ, NULL,
                    OPEN_EXISTING, 0, 0);
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
-    f = snew(WFile);
-    f->h = h;
+    ret = snew(WFile);
+    ret->h = h;
 
     if (size) {
         DWORD lo, hi;
@@ -189,7 +189,7 @@ WFile *open_existing_wfile(const char *name, uint64_t *size)
         *size = uint64_from_words(hi, lo);
     }
 
-    return f;
+    return ret;
 }
 
 int write_to_file(WFile *f, void *buffer, int length)
@@ -277,7 +277,7 @@ DirHandle *open_directory(const char *name, const char **errmsg)
     HANDLE h;
     WIN32_FIND_DATA fdat;
     char *findfile;
-    DirHandle *dir;
+    DirHandle *ret;
 
     /* Enumerate files in dir `foo'. */
     findfile = dupcat(name, "/*");
@@ -288,10 +288,10 @@ DirHandle *open_directory(const char *name, const char **errmsg)
     }
     sfree(findfile);
 
-    dir = snew(DirHandle);
-    dir->h = h;
-    dir->name = dupstr(fdat.cFileName);
-    return dir;
+    ret = snew(DirHandle);
+    ret->h = h;
+    ret->name = dupstr(fdat.cFileName);
+    return ret;
 }
 
 char *read_filename(DirHandle *dir)
@@ -384,26 +384,26 @@ WildcardMatcher *begin_wildcard_matching(const char *name)
 {
     HANDLE h;
     WIN32_FIND_DATA fdat;
-    WildcardMatcher *dir;
+    WildcardMatcher *ret;
     char *last;
 
     h = FindFirstFile(name, &fdat);
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
-    dir = snew(WildcardMatcher);
-    dir->h = h;
-    dir->srcpath = dupstr(name);
-    last = stripslashes(dir->srcpath, true);
+    ret = snew(WildcardMatcher);
+    ret->h = h;
+    ret->srcpath = dupstr(name);
+    last = stripslashes(ret->srcpath, true);
     *last = '\0';
     if (fdat.cFileName[0] == '.' &&
         (fdat.cFileName[1] == '\0' ||
          (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
-        dir->name = NULL;
+        ret->name = NULL;
     else
-        dir->name = dupcat(dir->srcpath, fdat.cFileName);
+        ret->name = dupcat(ret->srcpath, fdat.cFileName);
 
-    return dir;
+    return ret;
 }
 
 char *wildcard_get_filename(WildcardMatcher *dir)

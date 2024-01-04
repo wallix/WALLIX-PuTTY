@@ -48,27 +48,14 @@
 #define AGENT_COPYDATA_ID 0x804e50ba
 
 struct Filename {
-    /*
-     * A Windows Filename stores a path in three formats:
-     *
-     *  - wchar_t (in Windows UTF-16 encoding). The best format to use
-     *    for actual file API functions, because all legal Windows
-     *    file names are representable.
-     *
-     *  - char, in the system default codepage. A fallback to use if
-     *    necessary, e.g. in diagnostics written to somewhere that is
-     *    unavoidably encoded _in_ the system codepage.
-     *
-     *  - char, in UTF-8. An equally general representation to wpath,
-     *    but suitable for keeping in char-typed strings.
-     */
-    wchar_t *wpath;
-    char *cpath, *utf8path;
+    char *path;
 };
-Filename *filename_from_wstr(const wchar_t *str);
-FILE *f_open(const Filename *filename, const char *mode, bool isprivate);
+static inline FILE *f_open(const Filename *filename, const char *mode,
+                           bool isprivate)
+{
+    return fopen(filename->path, mode);
+}
 
-#ifndef SUPERSEDE_FONTSPEC_FOR_TESTING
 struct FontSpec {
     char *name;
     bool isbold;
@@ -77,7 +64,6 @@ struct FontSpec {
 };
 struct FontSpec *fontspec_new(
     const char *name, bool bold, int height, int charset);
-#endif
 
 #ifndef CLEARTYPE_QUALITY
 #define CLEARTYPE_QUALITY 5
@@ -208,9 +194,6 @@ void centre_window(HWND hwnd);
 
 #define DEFAULT_CODEPAGE CP_ACP
 #define USES_VTLINE_HACK
-#define CP_UTF8 65001
-#define CP_437 437                     /* used for test suites */
-#define CP_ISO8859_1 0x10001           /* used for test suites */
 
 #ifndef NO_GSSAPI
 /*
@@ -266,7 +249,7 @@ const SeatDialogPromptDescriptions *win_seat_prompt_descriptions(Seat *seat);
  * which takes the data string in the system code page instead of
  * Unicode.
  */
-void write_aclip(HWND hwnd, int clipboard, char *, int);
+void write_aclip(int clipboard, char *, int, bool);
 
 #define WM_NETEVENT  (WM_APP + 5)
 
@@ -300,21 +283,12 @@ void write_aclip(HWND hwnd, int clipboard, char *, int);
  * these strings are of exactly the type needed to go in
  * `lpstrFilter' in an OPENFILENAME structure.
  */
-typedef const wchar_t *FILESELECT_FILTER_TYPE;
-#define FILTER_KEY_FILES (L"PuTTY Private Key Files (*.ppk)\0*.ppk\0" \
-                          L"All Files (*.*)\0*\0\0\0")
-#define FILTER_WAVE_FILES (L"Wave Files (*.wav)\0*.WAV\0"       \
-                           L"All Files (*.*)\0*\0\0\0")
-#define FILTER_DYNLIB_FILES (L"Dynamic Library Files (*.dll)\0*.dll\0" \
-                             L"All Files (*.*)\0*\0\0\0")
-
-/* char-based versions of the above, for outlying uses of file selectors. */
-#define FILTER_KEY_FILES_C ("PuTTY Private Key Files (*.ppk)\0*.ppk\0" \
-                            "All Files (*.*)\0*\0\0\0")
-#define FILTER_WAVE_FILES_C ("Wave Files (*.wav)\0*.WAV\0" \
-                             "All Files (*.*)\0*\0\0\0")
-#define FILTER_DYNLIB_FILES_C ("Dynamic Library Files (*.dll)\0*.dll\0" \
+#define FILTER_KEY_FILES ("PuTTY Private Key Files (*.ppk)\0*.ppk\0" \
+                              "All Files (*.*)\0*\0\0\0")
+#define FILTER_WAVE_FILES ("Wave Files (*.wav)\0*.WAV\0" \
                                "All Files (*.*)\0*\0\0\0")
+#define FILTER_DYNLIB_FILES ("Dynamic Library Files (*.dll)\0*.dll\0" \
+                                 "All Files (*.*)\0*\0\0\0")
 
 /*
  * Exports from network.c.
@@ -418,18 +392,14 @@ void init_common_controls(void);       /* also does some DLL-loading */
  */
 typedef struct filereq_tag filereq; /* cwd for file requester */
 bool request_file(filereq *state, OPENFILENAME *of, bool preserve, bool save);
-bool request_file_w(filereq *state, OPENFILENAMEW *of,
-                    bool preserve, bool save);
 filereq *filereq_new(void);
 void filereq_free(filereq *state);
 void pgp_fingerprints_msgbox(HWND owner);
-int message_box(HWND owner, LPCTSTR text, LPCTSTR caption, DWORD style,
-                bool utf8, DWORD helpctxid);
+int message_box(HWND owner, LPCTSTR text, LPCTSTR caption,
+                DWORD style, DWORD helpctxid);
 void MakeDlgItemBorderless(HWND parent, int id);
 char *GetDlgItemText_alloc(HWND hwnd, int id);
-wchar_t *GetDlgItemTextW_alloc(HWND hwnd, int id);
-void split_into_argv(char *, bool includes_program_name,
-                     int *, char ***, char ***);
+void split_into_argv(char *, int *, char ***, char ***);
 
 /*
  * Private structure for prefslist state. Only in the header file
@@ -826,7 +796,5 @@ bool aux_match_done(AuxMatchOpt *amo);
 
 char *save_screenshot(HWND hwnd, const char *outfile);
 void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend);
-
-void setup_gui_timing(void);
 
 #endif /* PUTTY_WINDOWS_PLATFORM_H */

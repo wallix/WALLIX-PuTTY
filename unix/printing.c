@@ -12,17 +12,17 @@ struct printer_job_tag {
 
 printer_job *printer_start_job(char *printer)
 {
-    printer_job *pj = snew(printer_job);
+    printer_job *ret = snew(printer_job);
     /*
      * On Unix, we treat the printer string as the name of a
      * command to pipe to - typically lpr, of course.
      */
-    pj->fp = popen(printer, "w");
-    if (!pj->fp) {
-        sfree(pj);
-        pj = NULL;
+    ret->fp = popen(printer, "w");
+    if (!ret->fp) {
+        sfree(ret);
+        ret = NULL;
     }
-    return pj;
+    return ret;
 }
 
 void printer_job_data(printer_job *pj, const void *data, size_t len)

@@ -52,10 +52,10 @@ add_sources_from_current_dir(agent
 
 add_executable(fuzzterm
   ${CMAKE_SOURCE_DIR}/test/fuzzterm.c
+  ${CMAKE_SOURCE_DIR}/logging.c
   ${CMAKE_SOURCE_DIR}/stubs/no-print.c
   unicode.c
-  no-gtk.c
-  $<TARGET_OBJECTS:logging>)
+  no-gtk.c)
 be_list(fuzzterm FuZZterm)
 add_dependencies(fuzzterm generated_licence_h)
 target_link_libraries(fuzzterm
@@ -137,7 +137,6 @@ if(GTK_FOUND)
     main-gtk-simple.c
     ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
     ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-console.c
     ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
     pty.c)
   be_list(pterm pterm)
@@ -153,7 +152,6 @@ if(GTK_FOUND)
       ${CMAKE_SOURCE_DIR}/stubs/no-cmdline.c
       ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
       ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-      ${CMAKE_SOURCE_DIR}/stubs/no-console.c
       ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
       pty.c)
     be_list(ptermapp pterm)
@@ -164,8 +162,7 @@ if(GTK_FOUND)
 
   add_executable(putty
     putty.c
-    main-gtk-simple.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
+    main-gtk-simple.c)
   be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
   target_link_libraries(putty
     guiterminal eventloop sshclient otherbackends settings
@@ -179,8 +176,7 @@ if(GTK_FOUND)
     add_executable(puttyapp
       putty.c
       main-gtk-application.c
-      ${CMAKE_SOURCE_DIR}/stubs/no-cmdline.c
-      ${CMAKE_SOURCE_DIR}/stubs/no-console.c)
+      ${CMAKE_SOURCE_DIR}/stubs/no-cmdline.c)
     be_list(puttyapp PuTTY SSH SERIAL OTHERBACKENDS)
     target_link_libraries(puttyapp
       guiterminal eventloop sshclient otherbackends settings
@@ -193,7 +189,6 @@ if(GTK_FOUND)
     main-gtk-simple.c
     ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
     ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-console.c
     ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
     ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
     ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c)
@@ -202,24 +197,6 @@ if(GTK_FOUND)
     guiterminal eventloop otherbackends settings network charset utils
     puttyxpms
     ${GTK_LIBRARIES} ${X11_LIBRARIES})
-
-  add_executable(test_lineedit
-    ${CMAKE_SOURCE_DIR}/test/test_lineedit.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-logging.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-printing.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-timing.c)
-  target_link_libraries(test_lineedit
-    guiterminal settings eventloop charset utils ${platform_libraries})
-
-  add_executable(test_terminal
-    ${CMAKE_SOURCE_DIR}/test/test_terminal.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
-    ${CMAKE_SOURCE_DIR}/stubs/no-timing.c)
-  target_link_libraries(test_terminal
-    guiterminal settings eventloop charset utils ${platform_libraries})
 endif()
 
 # Pageant is built whether we have GTK or not; in its absence we
@@ -244,5 +221,3 @@ target_link_libraries(pageant
   eventloop console agent settings network crypto utils
   ${pageant_libs})
 installed_program(pageant)
-
-add_sources_from_current_dir(test_conf stubs/no-uxsel.c)

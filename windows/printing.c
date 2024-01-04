@@ -93,7 +93,7 @@ static bool printer_add_enum(int param, DWORD level, char **buffer,
 
 printer_enum *printer_start_enum(int *nprinters_ptr)
 {
-    printer_enum *pe = snew(printer_enum);
+    printer_enum *ret = snew(printer_enum);
     char *buffer = NULL;
 
     *nprinters_ptr = 0;                /* default return value */
@@ -110,30 +110,30 @@ printer_enum *printer_start_enum(int *nprinters_ptr)
      * Bletch.
      */
     if (osPlatformId != VER_PLATFORM_WIN32_NT) {
-        pe->enum_level = 5;
+        ret->enum_level = 5;
     } else {
-        pe->enum_level = 4;
+        ret->enum_level = 4;
     }
 
     if (!printer_add_enum(PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
-                          pe->enum_level, &buffer, 0, nprinters_ptr))
+                          ret->enum_level, &buffer, 0, nprinters_ptr))
         goto error;
 
-    switch (pe->enum_level) {
+    switch (ret->enum_level) {
       case 4:
-        pe->info.i4 = (LPPRINTER_INFO_4)buffer;
+        ret->info.i4 = (LPPRINTER_INFO_4)buffer;
         break;
       case 5:
-        pe->info.i5 = (LPPRINTER_INFO_5)buffer;
+        ret->info.i5 = (LPPRINTER_INFO_5)buffer;
         break;
     }
-    pe->nprinters = *nprinters_ptr;
+    ret->nprinters = *nprinters_ptr;
 
-    return pe;
+    return ret;
 
   error:
     sfree(buffer);
-    sfree(pe);
+    sfree(ret);
     *nprinters_ptr = 0;
     return NULL;
 }
@@ -171,38 +171,38 @@ void printer_finish_enum(printer_enum *pe)
 
 printer_job *printer_start_job(char *printer)
 {
-    printer_job *pj = snew(printer_job);
+    printer_job *ret = snew(printer_job);
     DOC_INFO_1 docinfo;
     bool jobstarted = false, pagestarted = false;
 
     init_winfuncs();
 
-    pj->hprinter = NULL;
-    if (!p_OpenPrinter(printer, &pj->hprinter, NULL))
+    ret->hprinter = NULL;
+    if (!p_OpenPrinter(printer, &ret->hprinter, NULL))
         goto error;
 
     docinfo.pDocName = "PuTTY remote printer output";
     docinfo.pOutputFile = NULL;
     docinfo.pDatatype = "RAW";
 
-    if (!p_StartDocPrinter(pj->hprinter, 1, (LPBYTE)&docinfo))
+    if (!p_StartDocPrinter(ret->hprinter, 1, (LPBYTE)&docinfo))
         goto error;
     jobstarted = true;
 
-    if (!p_StartPagePrinter(pj->hprinter))
+    if (!p_StartPagePrinter(ret->hprinter))
         goto error;
     pagestarted = true;
 
-    return pj;
+    return ret;
 
   error:
     if (pagestarted)
-        p_EndPagePrinter(pj->hprinter);
+        p_EndPagePrinter(ret->hprinter);
     if (jobstarted)
-        p_EndDocPrinter(pj->hprinter);
-    if (pj->hprinter)
-        p_ClosePrinter(pj->hprinter);
-    sfree(pj);
+        p_EndDocPrinter(ret->hprinter);
+    if (ret->hprinter)
+        p_ClosePrinter(ret->hprinter);
+    sfree(ret);
     return NULL;
 }
 

@@ -52,7 +52,6 @@ static const SeatVtable psftp_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = console_connection_fatal,
-    .nonfatal = console_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
@@ -2840,6 +2839,8 @@ int psftp_main(int argc, char *argv[])
         } else if (strcmp(argv[i], "-V") == 0 ||
                    strcmp(argv[i], "--version") == 0) {
             version();
+        } else if (strcmp(argv[i], "-batch") == 0) {
+            console_batch_mode = true;
         } else if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
             mode = 1;
             batchfile = argv[++i];

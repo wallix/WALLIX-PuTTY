@@ -13,11 +13,6 @@ FontSpec *fontspec_new(const char *name)
     return f;
 }
 
-FontSpec *fontspec_new_default(void)
-{
-    return fontspec_new("");
-}
-
 FontSpec *fontspec_copy(const FontSpec *f)
 {
     return fontspec_new(f->name);

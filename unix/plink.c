@@ -64,7 +64,7 @@ int platform_default_i(const char *name, int def)
 
 FontSpec *platform_default_fontspec(const char *name)
 {
-    return fontspec_new_default();
+    return fontspec_new("");
 }
 
 Filename *platform_default_filename(const char *name)
@@ -149,7 +149,7 @@ static char *plink_get_ttymode(Seat *seat, const char *mode)
     do { \
         if (strcmp(mode, ourname) == 0) \
             return get_ttychar(&orig_termios, uxname); \
-    } while (0)
+    } while(0)
 #define GET_BOOL(ourname, uxname, uxmemb, transform) \
     do { \
         if (strcmp(mode, ourname) == 0) { \
@@ -409,7 +409,6 @@ static const SeatVtable plink_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = console_connection_fatal,
-    .nonfatal = console_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = plink_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
@@ -735,6 +734,8 @@ int main(int argc, char **argv)
             --argc, ++argv;
         } else if (ret == 1) {
             continue;
+        } else if (!strcmp(p, "-batch")) {
+            console_batch_mode = true;
         } else if (!strcmp(p, "-s")) {
             /* Save status to write to conf later. */
             use_subsystem = true;

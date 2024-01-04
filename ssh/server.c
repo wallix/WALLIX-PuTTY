@@ -116,7 +116,6 @@ static const SeatVtable server_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = nullseat_connection_fatal,
-    .nonfatal = nullseat_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
@@ -502,7 +501,6 @@ void ssh_sw_abort(Ssh *ssh, const char *fmt, ...)
 void ssh_user_close(Ssh *ssh, const char *fmt, ...)
 {
     server *srv = container_of(ssh, server, ssh);
-    ssh_bpp_handle_output(srv->bpp);
     LOG_FORMATTED_MSG(srv->logctx, fmt);
     queue_toplevel_callback(ssh_server_free_callback, srv);
 }

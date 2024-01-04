@@ -97,7 +97,6 @@ static const SeatVtable plink_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = console_connection_fatal,
-    .nonfatal = console_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
@@ -340,6 +339,8 @@ int main(int argc, char **argv)
             --argc, ++argv;
         } else if (ret == 1) {
             continue;
+        } else if (!strcmp(p, "-batch")) {
+            console_batch_mode = true;
         } else if (!strcmp(p, "-s")) {
             /* Save status to write to conf later. */
             use_subsystem = true;

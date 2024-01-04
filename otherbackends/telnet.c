@@ -358,26 +358,28 @@ static void proc_rec_opt(Telnet *telnet, int cmd, int option)
 
 static void process_subneg(Telnet *telnet)
 {
-    unsigned char *p, *q;
-    int var, value;
+    unsigned char *b, *p, *q;
+    int var, value, n, bsize;
+    char *e, *eval, *ekey, *user;
 
     switch (telnet->sb_opt) {
       case TELOPT_TSPEED:
         if (telnet->sb_buf->len == 1 && telnet->sb_buf->u[0] == TELQUAL_SEND) {
             char *termspeed = conf_get_str(telnet->conf, CONF_termspeed);
-            strbuf *sb = strbuf_new();
-            put_byte(sb, IAC);
-            put_byte(sb, SB);
-            put_byte(sb, TELOPT_TSPEED);
-            put_byte(sb, TELQUAL_IS);
-            put_datapl(sb, ptrlen_from_asciz(termspeed));
-            put_byte(sb, IAC);
-            put_byte(sb, SE);
-            telnet->bufsize = sk_write(telnet->s, sb->s, sb->len);
+            b = snewn(20 + strlen(termspeed), unsigned char);
+            b[0] = IAC;
+            b[1] = SB;
+            b[2] = TELOPT_TSPEED;
+            b[3] = TELQUAL_IS;
+            strcpy((char *)(b + 4), termspeed);
+            n = 4 + strlen(termspeed);
+            b[n] = IAC;
+            b[n + 1] = SE;
+            telnet->bufsize = sk_write(telnet->s, b, n + 2);
             logevent(telnet->logctx, "server subnegotiation: SB TSPEED SEND");
             logeventf(telnet->logctx,
                       "client subnegotiation: SB TSPEED IS %s", termspeed);
-            strbuf_free(sb);
+            sfree(b);
         } else
             logevent(telnet->logctx,
                      "server subnegotiation: SB TSPEED <something weird>");
@@ -385,24 +387,24 @@ static void process_subneg(Telnet *telnet)
       case TELOPT_TTYPE:
         if (telnet->sb_buf->len == 1 && telnet->sb_buf->u[0] == TELQUAL_SEND) {
             char *termtype = conf_get_str(telnet->conf, CONF_termtype);
-            strbuf *sb = strbuf_new();
-            put_byte(sb, IAC);
-            put_byte(sb, SB);
-            put_byte(sb, TELOPT_TTYPE);
-            put_byte(sb, TELQUAL_IS);
-            size_t tt_start = sb->len;
-            for (size_t n = 0; termtype[n]; n++)
-                put_byte(sb, (termtype[n] >= 'a' && termtype[n] <= 'z' ?
-                              termtype[n] + 'A' - 'a' : termtype[n]));
-            size_t tt_end = sb->len;
-            put_byte(sb, IAC);
-            put_byte(sb, SE);
-            telnet->bufsize = sk_write(telnet->s, sb->s, sb->len);
-            strbuf_shrink_to(sb, tt_end);
-            logevent(telnet->logctx, "server subnegotiation: SB TTYPE SEND");
-            logeventf(telnet->logctx, "client subnegotiation: SB TTYPE IS %s",
-                      sb->s + tt_start);
-            strbuf_free(sb);
+            b = snewn(20 + strlen(termtype), unsigned char);
+            b[0] = IAC;
+            b[1] = SB;
+            b[2] = TELOPT_TTYPE;
+            b[3] = TELQUAL_IS;
+            for (n = 0; termtype[n]; n++)
+                b[n + 4] = (termtype[n] >= 'a' && termtype[n] <= 'z' ?
+                            termtype[n] + 'A' - 'a' :
+                            termtype[n]);
+            b[n + 4] = IAC;
+            b[n + 5] = SE;
+            telnet->bufsize = sk_write(telnet->s, b, n + 6);
+            b[n + 4] = 0;
+            logevent(telnet->logctx,
+                     "server subnegotiation: SB TTYPE SEND");
+            logeventf(telnet->logctx,
+                      "client subnegotiation: SB TTYPE IS %s", b + 4);
+            sfree(b);
         } else
             logevent(telnet->logctx,
                      "server subnegotiation: SB TTYPE <something weird>\r\n");
@@ -444,34 +446,49 @@ static void process_subneg(Telnet *telnet)
                 value = RFC_VALUE;
                 var = RFC_VAR;
             }
+            bsize = 20;
+            for (eval = conf_get_str_strs(telnet->conf, CONF_environmt,
+                                          NULL, &ekey);
+                 eval != NULL;
+                 eval = conf_get_str_strs(telnet->conf, CONF_environmt,
+                                          ekey, &ekey))
+                bsize += strlen(ekey) + strlen(eval) + 2;
+            user = get_remote_username(telnet->conf);
+            if (user)
+                bsize += 6 + strlen(user);
 
-            strbuf *sb = strbuf_new();
-            put_byte(sb, IAC);
-            put_byte(sb, SB);
-            put_byte(sb, telnet->sb_opt);
-            put_byte(sb, TELQUAL_IS);
-            char *ekey, *eval;
+            b = snewn(bsize, unsigned char);
+            b[0] = IAC;
+            b[1] = SB;
+            b[2] = telnet->sb_opt;
+            b[3] = TELQUAL_IS;
+            n = 4;
             for (eval = conf_get_str_strs(telnet->conf, CONF_environmt,
                                           NULL, &ekey);
                  eval != NULL;
                  eval = conf_get_str_strs(telnet->conf, CONF_environmt,
                                           ekey, &ekey)) {
-                put_byte(sb, var);
-                put_datapl(sb, ptrlen_from_asciz(ekey));
-                put_byte(sb, value);
-                put_datapl(sb, ptrlen_from_asciz(eval));
+                b[n++] = var;
+                for (e = ekey; *e; e++)
+                    b[n++] = *e;
+                b[n++] = value;
+                for (e = eval; *e; e++)
+                    b[n++] = *e;
             }
-            char *user = get_remote_username(telnet->conf);
             if (user) {
-                put_byte(sb, var);
-                put_datalit(sb, "USER");
-                put_byte(sb, value);
-                put_datapl(sb, ptrlen_from_asciz(user));
+                b[n++] = var;
+                b[n++] = 'U';
+                b[n++] = 'S';
+                b[n++] = 'E';
+                b[n++] = 'R';
+                b[n++] = value;
+                for (e = user; *e; e++)
+                    b[n++] = *e;
             }
-            put_byte(sb, IAC);
-            put_byte(sb, SE);
-            telnet->bufsize = sk_write(telnet->s, sb->s, sb->len);
-            if (sb->len == 6) {
+            b[n++] = IAC;
+            b[n++] = SE;
+            telnet->bufsize = sk_write(telnet->s, b, n);
+            if (n == 6) {
                 logeventf(telnet->logctx,
                           "client subnegotiation: SB %s IS <nothing>",
                           telopt(telnet->sb_opt));
@@ -488,7 +505,7 @@ static void process_subneg(Telnet *telnet)
                 if (user)
                     logeventf(telnet->logctx, "    USER=%s", user);
             }
-            strbuf_free(sb);
+            sfree(b);
             sfree(user);
         }
         break;

@@ -18,7 +18,6 @@ prompts_t *new_prompts(void)
     p->callback = NULL;
     p->callback_ctx = NULL;
     p->ldisc_ptr_to_us = NULL;
-    p->utf8 = false;
     return p;
 }
 

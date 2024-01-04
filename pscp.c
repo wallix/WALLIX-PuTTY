@@ -71,7 +71,6 @@ static const SeatVtable pscp_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = console_connection_fatal,
-    .nonfatal = console_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
@@ -2120,6 +2119,7 @@ static void get_dir_list(int argc, char *argv[])
 {
     char *wsrc, *host, *user;
     const char *src;
+    char *cmd, *p;
     const char *q;
     char c;
 
@@ -2149,18 +2149,24 @@ static void get_dir_list(int argc, char *argv[])
             user = NULL;
     }
 
-    strbuf *cmd = strbuf_new();
-    put_datalit(cmd, "ls -la '");
+    cmd = snewn(4 * strlen(src) + 100, char);
+    strcpy(cmd, "ls -la '");
+    p = cmd + strlen(cmd);
     for (q = src; *q; q++) {
-        if (*q == '\'')
-            put_datalit(cmd, "'\\''");
-        else
-            put_byte(cmd, *q);
+        if (*q == '\'') {
+            *p++ = '\'';
+            *p++ = '\\';
+            *p++ = '\'';
+            *p++ = '\'';
+        } else {
+            *p++ = *q;
+        }
     }
-    put_datalit(cmd, "'");
+    *p++ = '\'';
+    *p = '\0';
 
-    do_cmd(host, user, cmd->s);
-    strbuf_free(cmd);
+    do_cmd(host, user, cmd);
+    sfree(cmd);
 
     if (using_sftp) {
         scp_sftp_listdir(src);
@@ -2298,6 +2304,8 @@ int psftp_main(int argc, char *argv[])
             version();
         } else if (strcmp(argv[i], "-ls") == 0) {
             list = true;
+        } else if (strcmp(argv[i], "-batch") == 0) {
+            console_batch_mode = true;
         } else if (strcmp(argv[i], "-unsafe") == 0) {
             scp_unsafe_mode = true;
         } else if (strcmp(argv[i], "-sftp") == 0) {

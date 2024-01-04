@@ -19,8 +19,3 @@ unsigned long schedule_timer(int ticks, timer_fn_t fn, void *ctx)
 void expire_timer_context(void *ctx)
 {
 }
-
-unsigned long timing_last_clock(void)
-{
-    return 0;
-}

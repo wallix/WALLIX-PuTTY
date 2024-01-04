@@ -705,7 +705,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
 {
     char header[40], *b, *encryption, *comment, *mac;
     const ssh_keyalg *alg;
-    ssh2_userkey *ukey;
+    ssh2_userkey *ret;
     strbuf *public_blob, *private_blob, *cipher_mac_keys_blob;
     strbuf *passphrase_salt = strbuf_new();
     ptrlen cipherkey, cipheriv, mackey;
@@ -716,7 +716,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     const char *error = NULL;
     ppk_save_parameters params;
 
-    ukey = NULL;                        /* return NULL for most errors */
+    ret = NULL;                        /* return NULL for most errors */
     encryption = comment = mac = NULL;
     public_blob = private_blob = cipher_mac_keys_blob = NULL;
 
@@ -952,10 +952,10 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
              * unencrypted. Otherwise, it means Wrong Passphrase. */
             if (ciphertype->keylen != 0) {
                 error = "wrong passphrase";
-                ukey = SSH2_WRONG_PASSPHRASE;
+                ret = SSH2_WRONG_PASSPHRASE;
             } else {
                 error = "MAC failed";
-                ukey = NULL;
+                ret = NULL;
             }
             goto error;
         }
@@ -964,15 +964,15 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     /*
      * Create and return the key.
      */
-    ukey = snew(ssh2_userkey);
-    ukey->comment = comment;
+    ret = snew(ssh2_userkey);
+    ret->comment = comment;
     comment = NULL;
-    ukey->key = ssh_key_new_priv(
+    ret->key = ssh_key_new_priv(
         alg, ptrlen_from_strbuf(public_blob),
         ptrlen_from_strbuf(private_blob));
-    if (!ukey->key) {
-        sfree(ukey);
-        ukey = NULL;
+    if (!ret->key) {
+        sfree(ret);
+        ret = NULL;
         error = "createkey failed";
         goto error;
     }
@@ -997,7 +997,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     strbuf_free(passphrase_salt);
     if (errorstr)
         *errorstr = error;
-    return ukey;
+    return ret;
 }
 
 ssh2_userkey *ppk_load_f(const Filename *filename, const char *passphrase,

@@ -62,9 +62,6 @@ static const char sco2ansicolour[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
 #define sel_nl_sz  (sizeof(sel_nl)/sizeof(wchar_t))
 static const wchar_t sel_nl[] = SEL_NL;
 
-/* forward declaration */
-static void term_userpass_state_free(struct term_userpass_state *s);
-
 /*
  * Fetch the character at a particular position in a line array,
  * for purposes of `wordtype'. The reason this isn't just a simple
@@ -89,7 +86,8 @@ static void term_userpass_state_free(struct term_userpass_state *s);
  * Internal prototypes.
  */
 static void resizeline(Terminal *, termline *, int);
-static termline *lineptr(Terminal *, int, int);
+static termline *lineptr(Terminal *, int, int, int);
+static void unlineptr(termline *);
 static void check_line_size(Terminal *, termline *);
 static void do_paint(Terminal *);
 static void erase_lots(Terminal *, bool, bool, bool);
@@ -130,7 +128,7 @@ static void freetermline(termline *line)
     }
 }
 
-void term_release_line(termline *line)
+static void unlineptr(termline *line)
 {
     if (line->temporary)
         freetermline(line);
@@ -1170,19 +1168,12 @@ static void null_line_error(Terminal *term, int y, int lineno,
                   term->alt_sblines, whichtree, treeindex, commitid);
 }
 
-static inline int checkscr(int y, int lineno)
-{
-    if (y < 0)
-        modalfatalbox("screen line %d < 0 in terminal.c:%d", y, lineno);
-    return y;
-}
-
 /*
  * Retrieve a line of the screen or of the scrollback, according to
  * whether the y coordinate is non-negative or negative
  * (respectively).
  */
-static termline *lineptr(Terminal *term, int y, int lineno)
+static termline *lineptr(Terminal *term, int y, int lineno, int screen)
 {
     termline *line;
     tree234 *whichtree;
@@ -1193,6 +1184,8 @@ static termline *lineptr(Terminal *term, int y, int lineno)
         treeindex = y;
     } else {
         int altlines = 0;
+
+        assert(!screen);
 
         if (term->erase_to_scrollback &&
             term->alt_which && term->alt_screen) {
@@ -1244,29 +1237,8 @@ static termline *lineptr(Terminal *term, int y, int lineno)
     return line;
 }
 
-/*
- * Macro wrappers for lineptr. The distinction between lineptr and
- * scrlineptr is that lineptr can retrieve any line, from the screen
- * _or_ from scrollback, and in return, you have to call unlineptr
- * when you're done with it, in case it was a dynamically allocated
- * line decompressed from scrollback that needs freeing. But
- * scrlineptr will only retrieve lines from the active screen (and
- * enforces this by an assertion), which means it's always just
- * returning a pointer to an existing unpacked termline, and you don't
- * have to call unlineptr afterwards. So drawing code (which might
- * need the scrollback) will have to call lineptr/unlineptr, but
- * update code during term_out can call scrlineptr.
- *
- * The 'assertion' in scrlineptr is done using a helper function that
- * returns the input column number, which allows this macro to avoid
- * double-evaluating its argument.
- */
-#define lineptr(x) (lineptr)(term,x,__LINE__)
-#define scrlineptr(x) (lineptr)(term,checkscr(x,__LINE__),__LINE__)
-#define unlineptr(line) term_release_line(line)
-
-/* Wrapper for external use (e.g. tests), without the __LINE__ parameter */
-termline *term_get_line(Terminal *term, int y) { return lineptr(y); }
+#define lineptr(x) (lineptr)(term,x,__LINE__,0)
+#define scrlineptr(x) (lineptr)(term,x,__LINE__,1)
 
 /*
  * Coerce a termline to the terminal's current width. Unlike the
@@ -1680,17 +1652,19 @@ static void term_copy_stuff_from_conf(Terminal *term)
      */
     {
         char *answerback = conf_get_str(term->conf, CONF_answerback);
+        int maxlen = strlen(answerback);
 
-        strbuf_clear(term->answerback);
+        term->answerback = snewn(maxlen, char);
+        term->answerbacklen = 0;
 
         while (*answerback) {
             char *n;
             char c = ctrlparse(answerback, &n);
             if (n) {
-                put_byte(term->answerback, c);
+                term->answerback[term->answerbacklen++] = c;
                 answerback = n;
             } else {
-                put_byte(term->answerback, *answerback++);
+                term->answerback[term->answerbacklen++] = *answerback++;
             }
         }
     }
@@ -2045,47 +2019,104 @@ Terminal *term_init(Conf *myconf, struct unicode_data *ucsdata, TermWin *win)
      * that need it.
      */
     term = snew(Terminal);
-    memset(term, 0, sizeof(Terminal));
     term->win = win;
     term->ucsdata = ucsdata;
     term->conf = conf_copy(myconf);
+    term->logctx = NULL;
     term->compatibility_level = TM_PUTTY;
     strcpy(term->id_string, "\033[?6c");
+    term->cblink_pending = term->tblink_pending = false;
+    term->paste_buffer = NULL;
+    term->paste_len = 0;
     bufchain_init(&term->inbuf);
     bufchain_init(&term->printer_buf);
+    term->printing = term->only_printing = false;
+    term->print_job = NULL;
+    term->vt52_mode = false;
+    term->cr_lf_return = false;
+    term->mouse_is_down = 0;
+    term->reset_132 = false;
+    term->cblinker = false;
+    term->tblinker = false;
     term->has_focus = true;
+    term->repeat_off = false;
     term->termstate = TOPLEVEL;
     term->selstate = NO_SELECTION;
-    term->answerback = strbuf_new();
+    term->curstype = 0;
 
     term_copy_stuff_from_conf(term);
 
+    term->screen = term->alt_screen = term->scrollback = NULL;
+    term->tempsblines = 0;
+    term->alt_sblines = 0;
+    term->disptop = 0;
+    term->disptext = NULL;
     term->dispcursx = term->dispcursy = -1;
+    term->tabs = NULL;
     deselect(term);
     term->rows = term->cols = -1;
     power_on(term, true);
+    term->beephead = term->beeptail = NULL;
+    term->nbeeps = 0;
+    term->lastbeep = false;
+    term->beep_overloaded = false;
     term->attr_mask = 0xffffffff;
+    term->backend = NULL;
+    term->in_term_out = false;
+    term->ltemp = NULL;
+    term->ltemp_size = 0;
+    term->wcFrom = NULL;
+    term->wcTo = NULL;
+    term->wcFromTo_size = 0;
+
+    term->window_update_pending = false;
+    term->window_update_cooldown = false;
+
+    term->bidi_cache_size = 0;
+    term->pre_bidi_cache = term->post_bidi_cache = NULL;
 
     /* FULL-TERMCHAR */
     term->basic_erase_char.chr = CSET_ASCII | ' ';
     term->basic_erase_char.attr = ATTR_DEFAULT;
+    term->basic_erase_char.cc_next = 0;
     term->basic_erase_char.truecolour.fg = optionalrgb_none;
     term->basic_erase_char.truecolour.bg = optionalrgb_none;
     term->erase_char = term->basic_erase_char;
 
+    term->last_selected_text = NULL;
+    term->last_selected_attr = NULL;
+    term->last_selected_tc = NULL;
+    term->last_selected_len = 0;
     /* TermWin implementations will typically extend these with
      * clipboard ids they know about */
     term->mouse_select_clipboards[0] = CLIP_LOCAL;
     term->n_mouse_select_clipboards = 1;
     term->mouse_paste_clipboard = CLIP_NULL;
 
+    term->last_graphic_char = 0;
+
     term->trusted = true;
+
+    term->bracketed_paste_active = false;
 
     term->window_title = dupstr("");
     term->icon_title = dupstr("");
     term->wintitle_codepage = term->icontitle_codepage = DEFAULT_CODEPAGE;
+    term->minimised = false;
+    term->winpos_x = term->winpos_y = 0;
+    term->winpixsize_x = term->winpixsize_y = 0;
 
+    term->win_move_pending = false;
     term->win_resize_pending = WIN_RESIZE_NO;
+    term->win_zorder_pending = false;
+    term->win_minimise_pending = false;
+    term->win_maximise_pending = false;
+    term->win_title_pending = false;
+    term->win_icon_title_pending = false;
+    term->win_pointer_shape_pending = false;
+    term->win_refresh_pending = false;
+    term->win_scrollbar_update_pending = false;
+    term->win_palette_pending = false;
 
     term->bidi_ctx = bidi_new_context();
 
@@ -2121,14 +2152,14 @@ void term_free(Terminal *term)
         sfree(beep);
     }
     bufchain_clear(&term->inbuf);
-    if (term->print_job)
+    if(term->print_job)
         printer_finish_job(term->print_job);
     bufchain_clear(&term->printer_buf);
     sfree(term->paste_buffer);
     sfree(term->ltemp);
     sfree(term->wcFrom);
     sfree(term->wcTo);
-    strbuf_free(term->answerback);
+    sfree(term->answerback);
 
     for (i = 0; i < term->bidi_cache_size; i++) {
         sfree(term->pre_bidi_cache[i].chars);
@@ -2150,10 +2181,6 @@ void term_free(Terminal *term)
     sfree(term->icon_title);
 
     bidi_free_context(term->bidi_ctx);
-
-    /* In case a term_userpass_state is still around */
-    if (term->userpass_state)
-        term_userpass_state_free(term->userpass_state);
 
     sfree(term);
 }
@@ -3468,7 +3495,8 @@ static strbuf *term_input_data_from_unicode(
                 }
             }
 
-            put_utf8_char(buf, ch);
+            char utf8_chr[6];
+            put_data(buf, utf8_chr, encode_utf8(utf8_chr, ch));
         }
     } else {
         /*
@@ -3876,7 +3904,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                 if (term->ldisc) {
                     strbuf *buf = term_input_data_from_charset(
                         term, DEFAULT_CODEPAGE,
-                        term->answerback->s, term->answerback->len);
+                        term->answerback, term->answerbacklen);
                     ldisc_send(term->ldisc, buf->s, buf->len, false);
                     strbuf_free(buf);
                 }
@@ -5067,7 +5095,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         int i = def(term->esc_args[0], 1);
                         pos old_curs = term->curs;
 
-                        for (; i>0 && term->curs.x>0; i--) {
+                        for(;i>0 && term->curs.x>0; i--) {
                             do {
                                 term->curs.x--;
                             } while (term->curs.x >0 &&
@@ -5874,7 +5902,8 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
                                      bidi_char);
             }
 
-            for (it=0; it<term->cols ; it++) {
+            for(it=0; it<term->cols ; it++)
+            {
                 unsigned long uc = (ldata->chars[it].chr);
 
                 switch (uc & CSET_MASK) {
@@ -5928,10 +5957,10 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
                 nbc++;
             }
 
-            if (!term->no_bidi)
+            if(!term->no_bidi)
                 do_bidi(term->bidi_ctx, term->wcFrom, nbc);
 
-            if (!term->no_arabicshaping) {
+            if(!term->no_arabicshaping) {
                 do_shape(term->wcFrom, term->wcTo, nbc);
             } else {
                 /* If we're not calling do_shape, we must copy the
@@ -6790,39 +6819,68 @@ static int wordtype(Terminal *term, int uc)
         int start, end, ctype;
     };
     static const struct ucsword ucs_words[] = {
-        {128, 160, 0},
-        {161, 191, 1},
-        {215, 215, 1},
-        {247, 247, 1},
-        {0x037e, 0x037e, 1},           /* Greek question mark */
-        {0x0387, 0x0387, 1},           /* Greek ano teleia */
-        {0x055a, 0x055f, 1},           /* Armenian punctuation */
-        {0x0589, 0x0589, 1},           /* Armenian full stop */
-        {0x0700, 0x070d, 1},           /* Syriac punctuation */
-        {0x104a, 0x104f, 1},           /* Myanmar punctuation */
-        {0x10fb, 0x10fb, 1},           /* Georgian punctuation */
-        {0x1361, 0x1368, 1},           /* Ethiopic punctuation */
-        {0x166d, 0x166e, 1},           /* Canadian Syl. punctuation */
-        {0x17d4, 0x17dc, 1},           /* Khmer punctuation */
-        {0x1800, 0x180a, 1},           /* Mongolian punctuation */
-        {0x2000, 0x200a, 0},           /* Various spaces */
-        {0x2070, 0x207f, 2},           /* superscript */
-        {0x2080, 0x208f, 2},           /* subscript */
-        {0x200b, 0x27ff, 1},           /* punctuation and symbols */
-        {0x3000, 0x3000, 0},           /* ideographic space */
-        {0x3001, 0x3020, 1},           /* ideographic punctuation */
-        {0x303f, 0x309f, 3},           /* Hiragana */
-        {0x30a0, 0x30ff, 3},           /* Katakana */
-        {0x3300, 0x9fff, 3},           /* CJK Ideographs */
-        {0xac00, 0xd7a3, 3},           /* Hangul Syllables */
-        {0xf900, 0xfaff, 3},           /* CJK Ideographs */
-        {0xfe30, 0xfe6b, 1},           /* punctuation forms */
-        {0xff00, 0xff0f, 1},           /* half/fullwidth ASCII */
-        {0xff1a, 0xff20, 1},           /* half/fullwidth ASCII */
-        {0xff3b, 0xff40, 1},           /* half/fullwidth ASCII */
-        {0xff5b, 0xff64, 1},           /* half/fullwidth ASCII */
-        {0xfff0, 0xffff, 0},           /* half/fullwidth ASCII */
-        {0, 0, 0}
+        {
+        128, 160, 0}, {
+        161, 191, 1}, {
+        215, 215, 1}, {
+        247, 247, 1}, {
+        0x037e, 0x037e, 1},            /* Greek question mark */
+        {
+        0x0387, 0x0387, 1},            /* Greek ano teleia */
+        {
+        0x055a, 0x055f, 1},            /* Armenian punctuation */
+        {
+        0x0589, 0x0589, 1},            /* Armenian full stop */
+        {
+        0x0700, 0x070d, 1},            /* Syriac punctuation */
+        {
+        0x104a, 0x104f, 1},            /* Myanmar punctuation */
+        {
+        0x10fb, 0x10fb, 1},            /* Georgian punctuation */
+        {
+        0x1361, 0x1368, 1},            /* Ethiopic punctuation */
+        {
+        0x166d, 0x166e, 1},            /* Canadian Syl. punctuation */
+        {
+        0x17d4, 0x17dc, 1},            /* Khmer punctuation */
+        {
+        0x1800, 0x180a, 1},            /* Mongolian punctuation */
+        {
+        0x2000, 0x200a, 0},            /* Various spaces */
+        {
+        0x2070, 0x207f, 2},            /* superscript */
+        {
+        0x2080, 0x208f, 2},            /* subscript */
+        {
+        0x200b, 0x27ff, 1},            /* punctuation and symbols */
+        {
+        0x3000, 0x3000, 0},            /* ideographic space */
+        {
+        0x3001, 0x3020, 1},            /* ideographic punctuation */
+        {
+        0x303f, 0x309f, 3},            /* Hiragana */
+        {
+        0x30a0, 0x30ff, 3},            /* Katakana */
+        {
+        0x3300, 0x9fff, 3},            /* CJK Ideographs */
+        {
+        0xac00, 0xd7a3, 3},            /* Hangul Syllables */
+        {
+        0xf900, 0xfaff, 3},            /* CJK Ideographs */
+        {
+        0xfe30, 0xfe6b, 1},            /* punctuation forms */
+        {
+        0xff00, 0xff0f, 1},            /* half/fullwidth ASCII */
+        {
+        0xff1a, 0xff20, 1},            /* half/fullwidth ASCII */
+        {
+        0xff3b, 0xff40, 1},            /* half/fullwidth ASCII */
+        {
+        0xff5b, 0xff64, 1},            /* half/fullwidth ASCII */
+        {
+        0xfff0, 0xffff, 0},            /* half/fullwidth ASCII */
+        {
+        0, 0, 0}
     };
     const struct ucsword *wptr;
 
@@ -7826,19 +7884,15 @@ char *term_get_ttymode(Terminal *term, const char *mode)
 }
 
 struct term_userpass_state {
-    prompts_t *prompts;
     size_t curr_prompt;
-    enum TermUserpassPromptState {
-        TUS_INITIAL,         /* haven't even printed the prompt yet */
-        TUS_ACTIVE,          /* prompt is currently receiving user input */
-        TUS_ABORTED,         /* user pressed ^C or ^D to cancel prompt */
-    } prompt_state;
-    Terminal *term;
-    TermLineEditor *le;
-    TermLineEditorCallbackReceiver le_rcv;
+    bool done_prompt;   /* printed out prompt yet? */
 };
 
-static void term_userpass_next_prompt(struct term_userpass_state *s);
+/* Tiny wrapper to make it easier to write lots of little strings */
+static inline void term_write(Terminal *term, ptrlen data)
+{
+    term_data(term, data.ptr, data.len);
+}
 
 /*
  * Signal that a prompts_t is done. This involves sending a
@@ -7851,128 +7905,9 @@ static inline SeatPromptResult signal_prompts_t(Terminal *term, prompts_t *p,
     assert(p->callback && "Asynchronous userpass input requires a callback");
     queue_toplevel_callback(p->callback, p->callback_ctx);
     if (term->ldisc)
-        ldisc_provide_userpass_le(term->ldisc, NULL);
+        ldisc_enable_prompt_callback(term->ldisc, NULL);
     p->spr = spr;
-    if (p->data) {
-        term_userpass_state_free(p->data);
-        p->data = NULL;
-    }
     return spr;
-}
-
-/* Tiny wrapper to make it easier to write lots of little strings */
-static inline void term_write(Terminal *term, ptrlen data)
-{
-    term_data(term, data.ptr, data.len);
-}
-
-static void term_lineedit_to_terminal(
-    TermLineEditorCallbackReceiver *rcv, ptrlen data)
-{
-    struct term_userpass_state *s = container_of(
-        rcv, struct term_userpass_state, le_rcv);
-    prompt_t *pr = s->prompts->prompts[s->curr_prompt];
-    if (pr->echo)
-        term_write(s->term, data);
-}
-
-static void term_lineedit_to_backend(
-    TermLineEditorCallbackReceiver *rcv, ptrlen data)
-{
-    struct term_userpass_state *s = container_of(
-        rcv, struct term_userpass_state, le_rcv);
-    prompt_t *pr = s->prompts->prompts[s->curr_prompt];
-    put_datapl(pr->result, data);
-}
-
-static void term_lineedit_newline(TermLineEditorCallbackReceiver *rcv)
-{
-    struct term_userpass_state *s = container_of(
-        rcv, struct term_userpass_state, le_rcv);
-
-    prompt_t *pr = s->prompts->prompts[s->curr_prompt];
-    if (!pr->echo) {
-        /* If echo is disabled, we won't have printed the newline in
-         * term_lineedit_to_terminal, so print it now */
-        term_write(s->term, PTRLEN_LITERAL("\x0D\x0A"));
-    }
-
-    ldisc_provide_userpass_le(s->term->ldisc, NULL);
-    s->curr_prompt++;
-    s->prompt_state = TUS_INITIAL;
-    term_userpass_next_prompt(s);
-}
-
-static void term_lineedit_special(
-    TermLineEditorCallbackReceiver *rcv, SessionSpecialCode code, int arg)
-{
-    struct term_userpass_state *s = container_of(
-        rcv, struct term_userpass_state, le_rcv);
-    switch (code) {
-      case SS_IP:
-      case SS_EOF:
-        ldisc_provide_userpass_le(s->term->ldisc, NULL);
-        s->prompt_state = TUS_ABORTED;
-        signal_prompts_t(s->term, s->prompts, SPR_USER_ABORT);
-      default:
-        break;
-    }
-}
-
-static const TermLineEditorCallbackReceiverVtable
-term_userpass_lineedit_receiver_vt = {
-    .to_terminal = term_lineedit_to_terminal,
-    .to_backend = term_lineedit_to_backend,
-    .special = term_lineedit_special,
-    .newline = term_lineedit_newline,
-};
-
-static struct term_userpass_state *term_userpass_state_new(
-    Terminal *term, prompts_t *prompts)
-{
-    struct term_userpass_state *s = snew(struct term_userpass_state);
-    s->prompts = prompts;
-    s->curr_prompt = 0;
-    s->prompt_state = TUS_INITIAL;
-    s->term = term;
-    s->le_rcv.vt = &term_userpass_lineedit_receiver_vt;
-    s->le = lineedit_new(term, LE_INTERRUPT | LE_EOF_ALWAYS | LE_ESC_ERASES,
-                         &s->le_rcv);
-    assert(!term->userpass_state);
-    term->userpass_state = s;
-    return s;
-}
-
-static void term_userpass_state_free(struct term_userpass_state *s)
-{
-    assert(s->term->userpass_state == s);
-    s->term->userpass_state = NULL;
-    lineedit_free(s->le);
-    sfree(s);
-}
-
-static void term_userpass_next_prompt(struct term_userpass_state *s)
-{
-    if (s->prompt_state != TUS_INITIAL)
-        return;
-    if (s->curr_prompt < s->prompts->n_prompts) {
-        prompt_t *pr = s->prompts->prompts[s->curr_prompt];
-        term_write(s->term, ptrlen_from_asciz(pr->prompt));
-        s->prompt_state = TUS_ACTIVE;
-        ldisc_provide_userpass_le(s->term->ldisc, s->le);
-    } else {
-        /* This triggers the callback provided by the userpass client,
-         * which will call term_userpass_state to fetch the result
-         * we're storing here */
-        signal_prompts_t(s->term, s->prompts, SPR_OK);
-    }
-}
-
-static bool terminal_use_utf8 = true;
-bool set_legacy_charset_handling(bool newvalue)
-{
-    terminal_use_utf8 = !newvalue;
-    return true;
 }
 
 /*
@@ -7999,9 +7934,10 @@ SeatPromptResult term_get_userpass_input(Terminal *term, prompts_t *p)
         /*
          * First call. Set some stuff up.
          */
-        p->data = s = term_userpass_state_new(term, p);
+        p->data = s = snew(struct term_userpass_state);
         p->spr = SPR_INCOMPLETE;
-        term->userpass_utf8_override = p->utf8 && terminal_use_utf8;
+        s->curr_prompt = 0;
+        s->done_prompt = false;
         /* We only print the `name' caption if we have to... */
         if (p->name_reqd && p->name) {
             ptrlen plname = ptrlen_from_asciz(p->name);
@@ -8024,11 +7960,98 @@ SeatPromptResult term_get_userpass_input(Terminal *term, prompts_t *p)
             for (i = 0; i < (int)p->n_prompts; i++)
                 prompt_set_result(p->prompts[i], "");
         }
-        /* And print the first prompt. */
-        term_userpass_next_prompt(s);
     }
 
-    return SPR_INCOMPLETE;
+    while (s->curr_prompt < p->n_prompts) {
+
+        prompt_t *pr = p->prompts[s->curr_prompt];
+        bool finished_prompt = false;
+
+        if (!s->done_prompt) {
+            term_write(term, ptrlen_from_asciz(pr->prompt));
+            s->done_prompt = true;
+        }
+
+        /* Breaking out here ensures that the prompt is printed even
+         * if we're now waiting for user data. */
+        if (!ldisc_has_input_buffered(term->ldisc))
+            break;
+
+        /* FIXME: should we be using local-line-editing code instead? */
+        while (!finished_prompt && ldisc_has_input_buffered(term->ldisc)) {
+            LdiscInputToken tok = ldisc_get_input_token(term->ldisc);
+
+            char c;
+            if (tok.is_special) {
+                switch (tok.code) {
+                  case SS_EOL: c = 13; break;
+                  case SS_EC: c = 8; break;
+                  case SS_IP: c = 3; break;
+                  case SS_EOF: c = 3; break;
+                  default: continue;
+                }
+            } else {
+                c = tok.chr;
+            }
+
+            switch (c) {
+              case 10:
+              case 13:
+                term_write(term, PTRLEN_LITERAL("\r\n"));
+                /* go to next prompt, if any */
+                s->curr_prompt++;
+                s->done_prompt = false;
+                finished_prompt = true; /* break out */
+                break;
+              case 8:
+              case 127:
+                if (pr->result->len > 0) {
+                    if (pr->echo)
+                        term_write(term, PTRLEN_LITERAL("\b \b"));
+                    strbuf_shrink_by(pr->result, 1);
+                }
+                break;
+              case 21:
+              case 27:
+                while (pr->result->len > 0) {
+                    if (pr->echo)
+                        term_write(term, PTRLEN_LITERAL("\b \b"));
+                    strbuf_shrink_by(pr->result, 1);
+                }
+                break;
+              case 3:
+              case 4:
+                /* Immediate abort. */
+                term_write(term, PTRLEN_LITERAL("\r\n"));
+                sfree(s);
+                p->data = NULL;
+                return signal_prompts_t(term, p, SPR_USER_ABORT);
+              default:
+                /*
+                 * This simplistic check for printability is disabled
+                 * when we're doing password input, because some people
+                 * have control characters in their passwords.
+                 */
+                if (!pr->echo || (c >= ' ' && c <= '~') ||
+                     ((unsigned char) c >= 160)) {
+                    put_byte(pr->result, c);
+                    if (pr->echo)
+                        term_write(term, make_ptrlen(&c, 1));
+                }
+                break;
+            }
+        }
+
+    }
+
+    if (s->curr_prompt < p->n_prompts) {
+        ldisc_enable_prompt_callback(term->ldisc, p);
+        return SPR_INCOMPLETE;
+    } else {
+        sfree(s);
+        p->data = NULL;
+        return signal_prompts_t(term, p, SPR_OK);
+    }
 }
 
 void term_notify_minimised(Terminal *term, bool minimised)

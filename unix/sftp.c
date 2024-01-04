@@ -52,7 +52,7 @@ int platform_default_i(const char *name, int def)
 
 FontSpec *platform_default_fontspec(const char *name)
 {
-    return fontspec_new_default();
+    return fontspec_new("");
 }
 
 Filename *platform_default_filename(const char *name)
@@ -125,14 +125,14 @@ RFile *open_existing_file(const char *name, uint64_t *size,
                           long *perms)
 {
     int fd;
-    RFile *f;
+    RFile *ret;
 
     fd = open(name, O_RDONLY);
     if (fd < 0)
         return NULL;
 
-    f = snew(RFile);
-    f->fd = fd;
+    ret = snew(RFile);
+    ret->fd = fd;
 
     if (size || mtime || atime || perms) {
         struct stat statbuf;
@@ -154,7 +154,7 @@ RFile *open_existing_file(const char *name, uint64_t *size,
             *perms = statbuf.st_mode;
     }
 
-    return f;
+    return ret;
 }
 
 int read_from_file(RFile *f, void *buffer, int length)
@@ -176,33 +176,33 @@ struct WFile {
 WFile *open_new_file(const char *name, long perms)
 {
     int fd;
-    WFile *f;
+    WFile *ret;
 
     fd = open(name, O_CREAT | O_TRUNC | O_WRONLY,
               (mode_t)(perms ? perms : 0666));
     if (fd < 0)
         return NULL;
 
-    f = snew(WFile);
-    f->fd = fd;
-    f->name = dupstr(name);
+    ret = snew(WFile);
+    ret->fd = fd;
+    ret->name = dupstr(name);
 
-    return f;
+    return ret;
 }
 
 
 WFile *open_existing_wfile(const char *name, uint64_t *size)
 {
     int fd;
-    WFile *f;
+    WFile *ret;
 
     fd = open(name, O_APPEND | O_WRONLY);
     if (fd < 0)
         return NULL;
 
-    f = snew(WFile);
-    f->fd = fd;
-    f->name = dupstr(name);
+    ret = snew(WFile);
+    ret->fd = fd;
+    ret->name = dupstr(name);
 
     if (size) {
         struct stat statbuf;
@@ -214,7 +214,7 @@ WFile *open_existing_wfile(const char *name, uint64_t *size)
         *size = statbuf.st_size;
     }
 
-    return f;
+    return ret;
 }
 
 int write_to_file(WFile *f, void *buffer, int length)
@@ -311,15 +311,18 @@ struct DirHandle {
 
 DirHandle *open_directory(const char *name, const char **errmsg)
 {
-    DIR *dp = opendir(name);
-    if (!dp) {
+    DIR *dir;
+    DirHandle *ret;
+
+    dir = opendir(name);
+    if (!dir) {
         *errmsg = strerror(errno);
         return NULL;
     }
 
-    DirHandle *dir = snew(DirHandle);
-    dir->dir = dp;
-    return dir;
+    ret = snew(DirHandle);
+    ret->dir = dir;
+    return ret;
 }
 
 char *read_filename(DirHandle *dir)
@@ -385,16 +388,16 @@ struct WildcardMatcher {
     int i;
 };
 WildcardMatcher *begin_wildcard_matching(const char *name) {
-    WildcardMatcher *dir = snew(WildcardMatcher);
+    WildcardMatcher *ret = snew(WildcardMatcher);
 
-    if (glob(name, 0, NULL, &dir->globbed) < 0) {
-        sfree(dir);
+    if (glob(name, 0, NULL, &ret->globbed) < 0) {
+        sfree(ret);
         return NULL;
     }
 
-    dir->i = 0;
+    ret->i = 0;
 
-    return dir;
+    return ret;
 }
 char *wildcard_get_filename(WildcardMatcher *dir) {
     if (dir->i < dir->globbed.gl_pathc) {

@@ -20,7 +20,7 @@ add_subdirectory(utils)
 add_subdirectory(stubs)
 
 add_library(logging OBJECT
-  logging.c utils/logeventf.c)
+  logging.c)
 
 add_library(eventloop STATIC
   callback.c timing.c)
@@ -36,8 +36,7 @@ add_library(crypto STATIC
 add_subdirectory(crypto)
 
 add_library(network STATIC
-  errsock.c x11disp.c
-  $<TARGET_OBJECTS:logging>
+  errsock.c logging.c x11disp.c
   proxy/proxy.c
   proxy/http.c
   proxy/socks4.c
@@ -55,7 +54,7 @@ add_library(agent STATIC
 
 add_library(guiterminal STATIC
   terminal/terminal.c terminal/bidi.c
-  ldisc.c terminal/lineedit.c config.c dialog.c
+  ldisc.c config.c dialog.c
   $<TARGET_OBJECTS:logging>)
 
 add_library(noterminal STATIC
@@ -88,11 +87,6 @@ add_executable(test_decode_utf8
 target_compile_definitions(test_decode_utf8 PRIVATE TEST)
 target_link_libraries(test_decode_utf8 utils ${platform_libraries})
 
-add_executable(test_unicode_norm
-  utils/unicode-norm.c)
-target_compile_definitions(test_unicode_norm PRIVATE TEST)
-target_link_libraries(test_unicode_norm utils ${platform_libraries})
-
 add_executable(test_tree234
   utils/tree234.c)
 target_compile_definitions(test_tree234 PRIVATE TEST)
@@ -117,8 +111,7 @@ add_executable(bidi_test
 target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 
 add_executable(plink
-  ${platform}/plink.c
-  stubs/no-lineedit.c)
+  ${platform}/plink.c)
 # Note: if we ever port Plink to a platform where we can't implement a
 # serial backend, this be_list command will need to become platform-
 # dependent, so that it only sets the SERIAL option on platforms where
@@ -157,19 +150,6 @@ add_executable(psocks
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})
-
-add_executable(test_conf
-  test/test_conf.c
-  stubs/no-agent.c
-  stubs/no-callback.c
-  stubs/no-gss.c
-  stubs/no-ldisc.c
-  stubs/no-network.c
-  stubs/no-timing.c
-  proxy/noproxy.c # FIXME: move this to stubs
-)
-be_list(test_conf TestConf SSH SERIAL OTHERBACKENDS)
-target_link_libraries(test_conf sshclient otherbackends settings network crypto utils ${platform_libraries})
 
 foreach(subdir ${platform} ${extra_dirs})
   add_subdirectory(${subdir})
