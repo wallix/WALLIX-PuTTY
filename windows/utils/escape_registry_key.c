@@ -9,15 +9,27 @@
 
 #include "putty.h"
 
-void escape_registry_key(const char *in, strbuf *out)
+/* WALLIX: Escape registry key - Begin */
+//void escape_registry_key(const char *in, strbuf *out)
+void escape_registry_key(const char *in, strbuf *out, bool settings_come_from_registry)
+/* WALLIX: Escape registry key - End */
 {
     bool candot = false;
     static const char hex[16] = "0123456789ABCDEF";
 
     while (*in) {
-        if (*in == ' ' || *in == '\\' || *in == '*' || *in == '?' ||
-            *in == '%' || *in < ' ' || *in > '~' || (*in == '.'
-                                                     && !candot)) {
+/* WALLIX: Escape registry key - Begin */
+//        if (*in == ' ' || *in == '\\' || *in == '*' || *in == '?' ||
+//            *in == '%' || *in < ' ' || *in > '~' || (*in == '.'
+//                                                     && !candot)) {
+        if ((settings_come_from_registry &&
+             (*in == ' ' || *in == '\\' || *in == '*' || *in == '?' ||
+              *in == '%' || *in < ' ' || *in > '~' || (*in == '.'
+                                                       && !candot))) ||
+            (*in == '<' || *in == '>' || *in == ':' || *in == '"' ||
+             *in == '/' || *in == '\\' || *in == '|' || *in == '?' ||
+             *in == '*')) {
+/* WALLIX: Escape registry key - End */
             put_byte(out, '%');
             put_byte(out, hex[((unsigned char) *in) >> 4]);
             put_byte(out, hex[((unsigned char) *in) & 15]);

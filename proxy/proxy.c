@@ -645,12 +645,21 @@ Socket *new_connection(SockAddr *addr, const char *hostname,
     return sk_new(addr, port, privport, oobinline, nodelay, keepalive, plug);
 }
 
+/* WALLIX: Map to loopback - Begin */
+//Socket *new_listener(const char *srcaddr, int port, Plug *plug,
+//                     bool local_host_only, Conf *conf, int addressfamily)
 Socket *new_listener(const char *srcaddr, int port, Plug *plug,
-                     bool local_host_only, Conf *conf, int addressfamily)
+                     bool local_host_only, bool map_to_loopback, Conf *conf,
+                     int addressfamily)
+/* WALLIX: Map to loopback - End */
 {
     /* TODO: SOCKS (and potentially others) support inbound
      * TODO: connections via the proxy. support them.
      */
 
-    return sk_newlistener(srcaddr, port, plug, local_host_only, addressfamily);
+/* WALLIX: Map to loopback - Begin */
+//    return sk_newlistener(srcaddr, port, plug, local_host_only, addressfamily);
+    return sk_newlistener(srcaddr, port, plug, local_host_only, map_to_loopback,
+                          addressfamily);
+/* WALLIX: Map to loopback - End */
 }

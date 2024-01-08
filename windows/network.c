@@ -5,6 +5,8 @@
  * unfix.org.
  */
 
+#include <strsafe.h>
+#include <tchar.h>
 #include <winsock2.h> /* need to put this first, for winelib builds */
 
 #include <stdio.h>
@@ -1124,9 +1126,15 @@ Socket *sk_new(SockAddr *addr, int port, bool privport, bool oobinline,
     return &ret->sock;
 }
 
+/* WALLIX: Map to loopback - Begin */
+//static Socket *sk_newlistener_internal(
+//    const char *srcaddr, int port, Plug *plug,
+//    bool local_host_only, int orig_address_family)
 static Socket *sk_newlistener_internal(
     const char *srcaddr, int port, Plug *plug,
-    bool local_host_only, int orig_address_family)
+    bool local_host_only, bool map_to_loopback,
+    int orig_address_family)
+/* WALLIX: Map to loopback - End */
 {
     SOCKET s;
     SOCKADDR_IN a;
@@ -1241,12 +1249,58 @@ static Socket *sk_newlistener_internal(
          * specified one...
          */
         if (srcaddr) {
-            a.sin_addr.s_addr = p_inet_addr(srcaddr);
-            if (a.sin_addr.s_addr != INADDR_NONE) {
-                /* Override localhost_only with specified listen addr. */
-                ret->localhost_only = ipv4_is_loopback(a.sin_addr);
-                got_addr = true;
+/* WALLIX: Map to loopback - Begin */
+//            a.sin_addr.s_addr = p_inet_addr(srcaddr);
+//            if (a.sin_addr.s_addr != INADDR_NONE) {
+//                /* Override localhost_only with specified listen addr. */
+//                ret->localhost_only = ipv4_is_loopback(a.sin_addr);
+//                got_addr = true;
+//            }
+            /* 
+             * DNS resolution - used by Bastion RAWTCPIP
+             */
+            if (p_getaddrinfo && p_freeaddrinfo) {
+                struct addrinfo hints;
+                struct addrinfo *ai;
+                int err;
+
+                memset(&hints, 0, sizeof(hints));
+                hints.ai_family = AF_INET;
+                hints.ai_socktype = SOCK_STREAM;
+                hints.ai_protocol = IPPROTO_TCP;
+                {
+                    /* strip [] on IPv6 address literals */
+                    char *trimmed_addr = host_strduptrim(srcaddr);
+                    err = p_getaddrinfo(trimmed_addr, NULL, &hints, &ai);
+                    sfree(trimmed_addr);
+                }
+                if (err == 0/* && ai->ai_family == AF_INET*/) {
+                    a.sin_addr.s_addr =
+                        ((struct sockaddr_in *)ai->ai_addr)->sin_addr.s_addr;
+
+                    if (a.sin_addr.s_addr != INADDR_NONE) {
+                        /* Override localhost_only with specified listen addr. */
+                        ret->localhost_only = ipv4_is_loopback(a.sin_addr);
+                        got_addr = true;
+                    }
+
+                    p_freeaddrinfo(ai);
+                } else if (map_to_loopback) {
+                    p_closesocket(s);
+                    ret->error = winsock_error_string(err);
+                    return &ret->sock;
+                }
             }
+
+            if (!got_addr) {
+                a.sin_addr.s_addr = p_inet_addr(srcaddr);
+                if (a.sin_addr.s_addr != INADDR_NONE) {
+                    /* Override localhost_only with specified listen addr. */
+                    ret->localhost_only = ipv4_is_loopback(a.sin_addr);
+                    got_addr = true;
+                }
+            }
+/* WALLIX: Map to loopback - End */
         }
 
         /*
@@ -1314,8 +1368,13 @@ static Socket *sk_newlistener_internal(
      * IPv6 listening socket and link it to this one.
      */
     if (address_family == AF_INET && orig_address_family == AF_UNSPEC) {
+/* WALLIX: Map to loopback - Begin */
+//        Socket *other = sk_newlistener_internal(srcaddr, port, plug,
+//                                                local_host_only, AF_INET6);
         Socket *other = sk_newlistener_internal(srcaddr, port, plug,
-                                                local_host_only, AF_INET6);
+                                                local_host_only,
+                                                map_to_loopback, AF_INET6);
+/* WALLIX: Map to loopback - Begin */
 
         if (other) {
             NetSocket *ns = container_of(other, NetSocket, sock);
@@ -1332,8 +1391,13 @@ static Socket *sk_newlistener_internal(
     return &ret->sock;
 }
 
+/* WALLIX: Map to loopback - Begin */
+//Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
+//                       bool local_host_only, int orig_address_family)
 Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
-                       bool local_host_only, int orig_address_family)
+                       bool local_host_only, bool map_to_loopback,
+                       int orig_address_family)
+/* WALLIX: Map to loopback - End */
 {
     /*
      * Translate address_family from platform-independent constants
@@ -1345,14 +1409,21 @@ Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
 #endif
                           AF_UNSPEC);
 
+/* WALLIX: Map to loopback - Begin */
+//    return sk_newlistener_internal(srcaddr, port, plug, local_host_only,
+//                                   address_family);
     return sk_newlistener_internal(srcaddr, port, plug, local_host_only,
-                                   address_family);
+                                   map_to_loopback, address_family);
+/* WALLIX: Map to loopback - End */
 }
 
 Socket *sk_newlistener_unix(const char *path, Plug *plug)
 {
 #if HAVE_AFUNIX_H
-    return sk_newlistener_internal(path, 0, plug, false, AF_UNIX);
+/* WALLIX: Map to loopback - Begin */
+//    return sk_newlistener_internal(path, 0, plug, false, AF_UNIX);
+    return sk_newlistener_internal(path, 0, plug, false, false, AF_UNIX);
+/* WALLIX: Map to loopback - End */
 #else
     return new_error_socket_fmt(
         plug, "AF_UNIX support not compiled into this program");
@@ -1877,3 +1948,282 @@ SockAddr *platform_get_x11_unix_address(const char *display, int displaynum)
     ret->refcount = 1;
     return ret;
 }
+
+/* WALLIX: Map to loopback - Begin */
+int map_ip_to_loopback(struct iploop *ipl,
+                       char **loopback_addr, int nb_loopback_addr,
+                       char **service_addr, int nb_service_addr)
+{
+    OutputDebugStringA("map_ip_to_loopback(): ...\n");
+
+    memset(ipl, 0, sizeof(ipl));
+
+    if (nb_loopback_addr < 1) {
+        return 0;
+    }
+
+/*
+    HRSRC hrsrc = FindResource(NULL, MAKEINTRESOURCE(IPLOOP_RESOURCE), RT_RCDATA);
+    if (hrsrc == NULL) {
+        return -1;
+    }
+
+    DWORD resSize = SizeofResource(NULL, hrsrc);
+    HGLOBAL hGlbl = LoadResource(NULL, hrsrc);
+    if (hGlbl == NULL) {
+        return -1;
+    }
+
+    BYTE *pExeResource = (BYTE *)LockResource(hGlbl);
+    if (pExeResource == NULL) {
+        return -1;
+    }
+*/
+
+    char external_iploop_file_name[MAX_PATH];
+    if (!GetModuleFileNameA(NULL, external_iploop_file_name,
+                            _countof(external_iploop_file_name))) {
+        return -1;
+    }
+    char *slash = strrchr(external_iploop_file_name, '\\');
+    *(slash + 1) = '\0';
+    StringCchCatA(external_iploop_file_name,
+                  _countof(external_iploop_file_name), "iploop.exe");
+
+    char temp_path[MAX_PATH];
+    if (GetTempPathA(_countof(temp_path), temp_path) == 0) {
+        return -1;
+    }
+    char temp_exec_file_name[MAX_PATH];
+    if (GetTempFileNameA(temp_path, "ipl", GetCurrentProcessId(),
+                         temp_exec_file_name) == 0) {
+        return -1;
+    }
+
+    slash = strrchr(temp_exec_file_name, '\\');
+    char event_name_base[MAX_PATH];
+    _snprintf_s(event_name_base, _countof(event_name_base), _TRUNCATE,
+                "Local\\%s", slash ? slash + 1 : temp_exec_file_name);
+
+/*
+    strcat(temp_exec_file_name, ".exe");
+
+    HANDLE hFile = CreateFile(temp_exec_file_name, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD bytesWritten = 0;
+        WriteFile(hFile, pExeResource, resSize, &bytesWritten, NULL);
+        CloseHandle(hFile);
+    }
+*/
+
+/*
+    char dirName[MAX_PATH];
+    GetModuleFileName(NULL, dirName, _countof(dirName));
+    slash = strrchr(dirName, '\\');
+    if (slash) {
+        *slash = '\0';
+    }
+*/
+
+//    const size_t MAX_HOSTNAME = 255;
+
+    size_t cmd_line_buffer_length = strlen(event_name_base) + 1 /* space */;
+    for (int i = 0; i < nb_loopback_addr; i++) {
+        if (i > 0) cmd_line_buffer_length++ /* comma */;
+        cmd_line_buffer_length += strlen(loopback_addr[i]);
+    }
+
+    const char service_name_and_port[] = " /service s7oiehsx64 102 ";
+
+    if (nb_service_addr)
+    {
+        cmd_line_buffer_length += strlen(service_name_and_port);
+        
+        for (int i = 0; i < nb_service_addr; i++) {
+            if (i > 0) cmd_line_buffer_length++ /* comma */;
+            cmd_line_buffer_length += strlen(service_addr[i]);
+        }
+    }
+
+    char parent_process_id[256] = { 0 };
+    {
+        char environment_variable_content[64] = { 0 };
+        const DWORD get_env_var_result =
+            GetEnvironmentVariableA("WALLIX_UT_DEBUG",
+                                    environment_variable_content,
+                                    _countof(environment_variable_content));
+        if (get_env_var_result &&
+            _countof(environment_variable_content) > get_env_var_result) {
+            if (atoi(environment_variable_content))
+            {
+                _snprintf_s(parent_process_id, _countof(parent_process_id),
+                            _TRUNCATE, " /parent %u", GetCurrentProcessId());
+
+                cmd_line_buffer_length += strlen(parent_process_id);
+            }
+        }
+    }
+
+    cmd_line_buffer_length++ /* NUL-terminate */;
+
+    char *cmd_line_buffer = (char *)smalloc(cmd_line_buffer_length);
+    StringCchCopyA(cmd_line_buffer, cmd_line_buffer_length, event_name_base);
+    StringCchCatA(cmd_line_buffer, cmd_line_buffer_length, " ");
+
+    for (int i = 0; i < nb_loopback_addr; i++) {
+        if (i > 0) {
+            StringCchCatA(cmd_line_buffer, cmd_line_buffer_length, ",");
+        }
+        StringCchCatA(cmd_line_buffer, cmd_line_buffer_length,
+                      loopback_addr[i]);
+    }
+
+    for (int i = 0; i < nb_service_addr; i++) {
+        if (i > 0) {
+            StringCchCatA(cmd_line_buffer, cmd_line_buffer_length, ",");
+        } else if (i == 0) {
+            StringCchCatA(cmd_line_buffer, cmd_line_buffer_length,
+                          service_name_and_port);
+        }
+        StringCchCatA(cmd_line_buffer, cmd_line_buffer_length,
+                      service_addr[i]);
+    }
+
+    if (parent_process_id[0]) {
+        StringCchCatA(cmd_line_buffer, cmd_line_buffer_length,
+                      parent_process_id);
+    }
+
+#if DEBUG
+    assert(strlen(cmd_line_buffer) + 1 == cmd_line_buffer_length);
+#endif
+
+    char event_name_i2p[MAX_PATH];
+    StringCchCopyA(event_name_i2p, _countof(event_name_i2p),
+                   event_name_base);
+    StringCchCatA(event_name_i2p, _countof(event_name_i2p), "-I2P");
+    HANDLE event_i2p = CreateEventA(NULL, FALSE, FALSE, event_name_i2p);
+    if (event_i2p == NULL) {
+        sfree(cmd_line_buffer);
+        return -1;
+    }
+
+    char event_name_p2i[MAX_PATH];
+    StringCchCopyA(event_name_p2i, _countof(event_name_p2i),
+                   event_name_base);
+    StringCchCatA(event_name_p2i, _countof(event_name_p2i), "-P2I");
+    HANDLE event_p2i = CreateEventA(NULL, FALSE, FALSE, event_name_p2i);
+    if (event_p2i == NULL) {
+        CloseHandle(event_i2p);
+        sfree(cmd_line_buffer);
+        return -1;
+    }
+
+    SHELLEXECUTEINFOA ShellExecuteInfo;
+
+    memset(&ShellExecuteInfo, 0, sizeof(ShellExecuteInfo));
+
+    ShellExecuteInfo.cbSize       = sizeof(ShellExecuteInfo);
+    ShellExecuteInfo.fMask        = SEE_MASK_NOCLOSEPROCESS |
+                                    SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+    ShellExecuteInfo.lpVerb       = "open";
+    // Try to execute the file installed alongside 'putty.exe'.
+    ShellExecuteInfo.lpFile       = external_iploop_file_name;
+    ShellExecuteInfo.lpParameters = cmd_line_buffer;
+//    ShellExecuteInfo.lpDirectory  = dirName;
+    ShellExecuteInfo.nShow        = SW_SHOWNA;
+
+    // Create the child process.
+    if (!ShellExecuteExA(&ShellExecuteInfo)) {
+/*
+        HANDLE hFile = CreateFile(temp_exec_file_name, GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) {
+            CloseHandle(event_i2p);
+            CloseHandle(event_p2i);
+            sfree(cmd_line_buffer);
+            return -1;
+        }
+        DWORD bytesWritten = 0;
+        WriteFile(hFile, pExeResource, resSize, &bytesWritten, NULL);
+        CloseHandle(hFile);
+
+        ipl->exe = dupstr(temp_exec_file_name);
+
+        ShellExecuteInfo.lpFile = temp_exec_file_name;
+        ShellExecuteEx(&ShellExecuteInfo);
+        err = ShellExecuteInfo.hInstApp;
+
+        if (err < 32) {
+*/
+        CloseHandle(event_i2p);
+        CloseHandle(event_p2i);
+        sfree(cmd_line_buffer);
+        return -1;
+/*
+        }
+*/
+    }
+
+    OutputDebugStringA("map_ip_to_loopback(): Wait for event (I2P) ...");
+
+    const DWORD dwWaitResult = WaitForSingleObject(event_i2p, 10000);
+    if (WAIT_OBJECT_0 == dwWaitResult) {
+        OutputDebugStringA("map_ip_to_loopback(): Event (I2P) signaled.");
+    } else if (WAIT_TIMEOUT == dwWaitResult) {
+        OutputDebugStringA(
+            "map_ip_to_loopback(): Timeout when waiting for event (I2P)!");
+    } else {
+        char debug_string[256];
+        _snprintf_s(debug_string, _countof(debug_string), _TRUNCATE,
+            "map_ip_to_loopback(): "
+                "Failed to wait for (I2P) event! "
+                "WaitResult=0x%X LastError=0x%X",
+            dwWaitResult, GetLastError());
+        OutputDebugStringA(debug_string);
+    }
+
+    CloseHandle(event_i2p);
+
+    ipl->event = event_p2i;
+    ipl->child = ShellExecuteInfo.hProcess;
+
+    sfree(cmd_line_buffer);
+
+    OutputDebugStringA("map_ip_to_loopback(): Done.");
+
+    return 0;
+}
+
+int unmap_ip_from_loopback(struct iploop *ipl) {
+    OutputDebugStringA("unmap_ip_from_loopback(): ...\n");
+
+    if (ipl->event != NULL) {
+        if (ipl->child != NULL) {
+            SetEvent(ipl->event);
+            WaitForSingleObject(ipl->child, 2000);
+        }
+        CloseHandle(ipl->event);
+        ipl->event = NULL;
+    } else if (ipl->child != NULL) {
+        TerminateProcess(ipl->child, 1);
+    }
+
+    if (ipl->child != NULL) {
+        CloseHandle(ipl->child);
+        ipl->child = NULL;
+    }
+
+    if (ipl->exe != NULL) {
+        while (DeleteFile(ipl->exe) == 0) {
+            Sleep(50);
+        }
+        sfree(ipl->exe);
+        ipl->exe = NULL;
+    }
+
+    OutputDebugStringA("unmap_ip_from_loopback(): Done.");
+
+    return 0;
+}
+/* WALLIX: Map to loopback - End */

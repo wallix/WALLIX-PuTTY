@@ -127,7 +127,7 @@ DWORD errorShow(const char* pcErrText, const char* pcErrParam) {
 
     sfree(pcMessage);
     return errorCode;
-};
+}
 
 
 

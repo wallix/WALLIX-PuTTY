@@ -923,6 +923,35 @@ char *handle_restrict_acl_cmdline_prefix(char *p)
     return p;
 }
 
+/* WALLIX: Settings come from file - Begin */
+/*
+ *Remove quotes from path
+ */
+static char *UnquoteFile(const char *path)
+{
+    if (path == NULL || path[0] != '"') {
+        return dupstr(path);
+    }
+    char *p = dupstr(path + 1);
+    char *endquote = strrchr(p, '"');
+    if (endquote != NULL) {
+        *endquote = '\0';
+    }
+    return p;
+}
+
+/*
+ * Check if file exists.
+ */
+static bool FileExists(const char *path)
+{
+    char *p = UnquoteFile(path);
+    const bool exists = INVALID_FILE_ATTRIBUTES != GetFileAttributes(p);
+    sfree(p);
+    return exists;
+}
+/* WALLIX: Settings come from file - End */
+
 bool handle_special_sessionname_cmdline(char *p, Conf *conf)
 {
     /*
@@ -935,10 +964,20 @@ bool handle_special_sessionname_cmdline(char *p, Conf *conf)
      * If successful, the whole command line has been interpreted in
      * this way, so there's nothing left to parse into other arguments.
      */
-    if (*p != '@')
+/* WALLIX: Settings come from file - Begin */
+//    if (*p != '@')
+    if (*p != '@' && (*p == '\0' || !FileExists(p)))
+/* WALLIX: Settings come from file - End */
         return false;
 
-    ptrlen sessionname = ptrlen_from_asciz(p + 1);
+/* WALLIX: Settings come from file - Begin */
+    char *const unquoted_filename = UnquoteFile(*p == '@' ? p + 1 : p);
+/* WALLIX: Settings come from file - End */
+
+/* WALLIX: Settings come from file - Begin */
+//    ptrlen sessionname = ptrlen_from_asciz(p + 1);
+    ptrlen sessionname = ptrlen_from_asciz(unquoted_filename);
+/* WALLIX: Settings come from file - End */
     while (sessionname.len > 0 &&
            isspace(((unsigned char *)sessionname.ptr)[sessionname.len-1]))
         sessionname.len--;
@@ -946,6 +985,10 @@ bool handle_special_sessionname_cmdline(char *p, Conf *conf)
     char *dup = mkstr(sessionname);
     bool loaded = do_defaults(dup, conf);
     sfree(dup);
+
+/* WALLIX: Settings come from file - Begin */
+    sfree(unquoted_filename);
+/* WALLIX: Settings come from file - End */
 
     return loaded;
 }

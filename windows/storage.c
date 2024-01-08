@@ -375,14 +375,25 @@ settings_w *open_settings_w(const char *sessionname, char **errmsg)
                 sessionname = "Default Settings";
         }
 
+/* WALLIX: Settings come from file - Begin */
+        bool settings_come_from_registry = false;
+/* WALLIX: Settings come from file - End */
+
         /* JK: if sessionname contains [registry] -> cut it off */
         if ( *(sessionname+strlen(sessionname)-1) == ']') {
                 p = strrchr(sessionname, '[');
                 *(p-1) = '\0';
+
+/* WALLIX: Settings come from registry - Begin */
+                settings_come_from_registry = true;
+/* WALLIX: Settings come from registry - End */
         }
 
         sb = strbuf_new();
-        escape_registry_key(sessionname, sb);
+/* WALLIX: Settings come from registry - Begin */
+//        escape_registry_key(sessionname, sb);
+        escape_registry_key(sessionname, sb, settings_come_from_registry);
+/* WALLIX: Settings come from registry - End */
 
         sp = snew( struct setPack );
         sp->fromFile = 0;
@@ -503,14 +514,20 @@ void close_settings_w(settings_w *handle)
 
         while (st1) {
                 strbuf* sb = strbuf_new();
-                escape_registry_key(st1->key, sb);
+/* WALLIX: Settings to be stored in registry - Begin */
+//                escape_registry_key(st1->key, sb);
+                escape_registry_key(st1->key, sb, true);
+/* WALLIX: Settings to be stored in registry - End */
                 p = strbuf_to_str(sb);
                 writeok = writeok && WriteFile( hFile, p, strlen(p), &written, NULL);
                 writeok = writeok && WriteFile( hFile, "\\", 1, &written, NULL);
                 sfree(p);
 
                 sb = strbuf_new();
-                escape_registry_key(st1->value, sb);
+/* WALLIX: Settings to be stored in registry - Begin */
+//                escape_registry_key(st1->value, sb);
+                escape_registry_key(st1->value, sb, true);
+/* WALLIX: Settings to be stored in registry - End */
                 p = strbuf_to_str(sb);
                 writeok = writeok && WriteFile( hFile, p, strlen(p), &written, NULL);
                 writeok = writeok && WriteFile( hFile, "\\\n", 2, &written, NULL);
@@ -571,6 +588,9 @@ settings_r *open_settings_r_inner(const char *sessionname)
         HANDLE hFile;
         struct setPack* sp;
         struct setItem *st1, *st2;
+/* WALLIX: Fix file handle loss - Begin */
+        HANDLE hUnusedFileHandle = INVALID_HANDLE_VALUE;
+/* WALLIX: Fix file handle loss - End */
 
         sp = snew( struct setPack );
 
@@ -592,12 +612,20 @@ settings_r *open_settings_r_inner(const char *sessionname)
                 *(p-1) = '\0';
 
                 sb = strbuf_new();
-                escape_registry_key(ses, sb);        /* do not free sb to be used at the end of function */
+/* WALLIX: Settings come from registry - Begin */
+//                escape_registry_key(ses, sb);        /* do not free sb to be used at the end of function */
+                escape_registry_key(ses, sb, true);        /* do not free sb to be used at the end of function */
+/* WALLIX: Settings come from registry - End */
                 sfree(ses);
 
                 sp->fromFile = 0;
         }
-        else if (INVALID_HANDLE_VALUE != CreateFile(sessionname, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL)) {
+/* WALLIX: Fix file handle loss - Begin */
+//        else if (INVALID_HANDLE_VALUE != CreateFile(sessionname, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL)) {
+        else if (INVALID_HANDLE_VALUE != (hUnusedFileHandle = CreateFile(sessionname, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL))) {
+                CloseHandle(hUnusedFileHandle);
+                hUnusedFileHandle = INVALID_HANDLE_VALUE;
+/* WALLIX: Fix file handle loss - End */
                 /* JK: 6.3.2009 - 0.3.5 - for running putty for session files */
                 p = snewn(2 * strlen(sessionname) + 1, char);
                 strcpy(p, sessionname);
@@ -605,7 +633,10 @@ settings_r *open_settings_r_inner(const char *sessionname)
         }
         else {
                 sb = strbuf_new();
-                escape_registry_key(sessionname, sb);
+/* WALLIX: Settings come from file - Begin */
+//                escape_registry_key(sessionname, sb);
+                escape_registry_key(sessionname, sb, false);
+/* WALLIX: Settings come from file - End */
 
                 /* JK: secure pack for filename */
                 p = snewn(3 * strlen(sb->s) + 1 + 16, char);
@@ -630,7 +661,10 @@ settings_r *open_settings_r_inner(const char *sessionname)
 
                 if (hFile == INVALID_HANDLE_VALUE) {
                         sb = strbuf_new();
-                        escape_registry_key(sessionname, sb);
+/* WALLIX: Settings come from registry - Begin */
+//                        escape_registry_key(sessionname, sb);
+                        escape_registry_key(sessionname, sb, true);
+/* WALLIX: Settings come from registry - End */
                         sp->fromFile = 0;
                 }
                 else {
@@ -642,12 +676,18 @@ settings_r *open_settings_r_inner(const char *sessionname)
         if (sp->fromFile) {
                 /* JK: session is in file -> open dir/file */
                 GetCurrentDirectory( (MAX_PATH*2), oldpath);
-                if (SetCurrentDirectory(sesspath)) {
-                        hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+/* WALLIX: Read settings from file - Begin */
+//                if (SetCurrentDirectory(sesspath)) {
+//                        hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+//                }
+//                else {
+//                        hFile = INVALID_HANDLE_VALUE;
+//                }
+                hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+                if (INVALID_HANDLE_VALUE == hFile && SetCurrentDirectory(sesspath)) {
+                    hFile = CreateFile(p, GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
                 }
-                else {
-                        hFile = INVALID_HANDLE_VALUE;
-                }
+/* WALLIX: Read settings from file - End */
                 SetCurrentDirectory(oldpath);
 
                 if (hFile == INVALID_HANDLE_VALUE) {
@@ -694,11 +734,28 @@ settings_r *open_settings_r_inner(const char *sessionname)
                         *p = '\0';
                         ++p;
                         st1->value = p;
-                        p = strchr(p, '\\');
-                        if (!p) break;
-                        *p = '\0';
-                        ++p;
-                        ++p; /* for "\\\n" - human readable files */
+/* WALLIX: Remove whitespace - Being */
+//                        p = strchr(p, '\\');
+//                        if (!p) break;
+//                        *p = '\0';
+//                        ++p;
+//                        ++p; /* for "\\\n" - human readable files */
+                        while (++p) {
+                            if (*p == '\n' || *p == '\r' || *p == 0) {
+                                if (p[-1] == '\\') {
+                                    p[-1] = '\0';
+                                }
+                                else {
+                                    *p = '\0';
+                                }
+                                break;
+                            }
+                        }
+                        /* for "\\\n" - human readable files */
+                        do {
+                            p++;
+                        } while (*p == '\n' || *p == '\r');
+/* WALLIX: Remove whitespace - End */
 
                         st2 = snew( struct setItem );
                         st2->next = NULL;
@@ -740,7 +797,10 @@ char *read_setting_s(settings_r *handle, const char *key)
         if (handle->sp->fromFile) {
 
                 strbuf* sb = strbuf_new();
-                escape_registry_key(key, sb);
+/* WALLIX: Settings come from file - Begin */
+//                escape_registry_key(key, sb);
+                escape_registry_key(key, sb, false);
+/* WALLIX: Settings come from file - End */
                 p = strbuf_to_str(sb);
 
                 st = handle->sp->handle;
@@ -922,7 +982,10 @@ void del_settings(const char *sessionname)
                         return;
 
                 sb = strbuf_new();
-                escape_registry_key(sessionname, sb);
+/* WALLIX: Settings come from registry - Begin */
+//                escape_registry_key(sessionname, sb);
+                escape_registry_key(sessionname, sb, true);
+/* WALLIX: Settings come from registry - Begin */
                 del_regkey(rkey, sb->s);
                 strbuf_free(sb);
                 close_regkey(rkey);
@@ -938,13 +1001,19 @@ void del_settings(const char *sessionname)
                 p2ss = snewn(3 * strlen(pss) + 1, char);
 
                 sb = strbuf_new();
-                escape_registry_key(p, sb);
+/* WALLIX: Settings come from file - Begin */
+//                escape_registry_key(p, sb);
+                escape_registry_key(p, sb, false);
+/* WALLIX: Settings come from file - End */
                 strcpy(p, sb->s);
                 strbuf_free(sb);
                 packstr(p, p2);
 
                 sb = strbuf_new();
-                escape_registry_key(pss, sb);
+/* WALLIX: Settings come from file - Begin */
+//                escape_registry_key(pss, sb);
+                escape_registry_key(pss, sb, false);
+/* WALLIX: Settings come from file - End */
                 strcpy(pss, sb->s);
                 strbuf_free(sb);
                 packstr(pss, p2ss);
@@ -1096,7 +1165,10 @@ static void hostkey_regname(strbuf* sb, const char *hostname,
                             int port, const char *keytype)
 {
         put_fmt(sb, "%s@%d:", keytype, port);
-        escape_registry_key(hostname, sb);
+/* WALLIX: Settings come from registry - Begin */
+//        escape_registry_key(hostname, sb);
+        escape_registry_key(hostname, sb, true);
+/* WALLIX: Settings come from registry - End */
 }
 
 int check_stored_host_key(const char *hostname, int port,
@@ -1391,7 +1463,10 @@ host_ca *host_ca_load(const char *name)
     const char *s;
 
     sb = strbuf_new();
-    escape_registry_key(name, sb);
+/* WALLIX: Settings come from registry (default) - Begin */
+//    escape_registry_key(name, sb);
+    escape_registry_key(name, sb, true);
+/* WALLIX: Settings come from registry (default) - End */
     HKEY rkey = open_regkey_ro(HKEY_CURRENT_USER, host_ca_key, sb->s);
     strbuf_free(sb);
 
@@ -1439,7 +1514,10 @@ char *host_ca_save(host_ca *hca)
         return dupstr("CA record must have a name");
 
     strbuf *sb = strbuf_new();
-    escape_registry_key(hca->name, sb);
+/* WALLIX: Settings to be stored in registry (default) - Begin */
+//    escape_registry_key(hca->name, sb);
+    escape_registry_key(hca->name, sb, true);
+/* WALLIX: Settings to be stored in registry (default) - End */
     HKEY rkey = create_regkey(HKEY_CURRENT_USER, host_ca_key, sb->s);
     if (!rkey) {
         char *err = dupprintf("Unable to create registry key\n"
@@ -1474,7 +1552,10 @@ char *host_ca_delete(const char *name)
         return NULL;
 
     strbuf *sb = strbuf_new();
-    escape_registry_key(name, sb);
+/* WALLIX: Settings to removed from registry (default) - Begin */
+//    escape_registry_key(name, sb);
+    escape_registry_key(name, sb, true);
+/* WALLIX: Settings to removed from registry (default) - End */
     del_regkey(rkey, sb->s);
     strbuf_free(sb);
 

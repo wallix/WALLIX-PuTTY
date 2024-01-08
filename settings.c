@@ -136,7 +136,11 @@ static char *gpps_raw(settings_r *sesskey, const char *name, const char *def)
 static void gpps(settings_r *sesskey, const char *name, const char *def,
                  Conf *conf, int primary)
 {
-    char *val = gpps_raw(sesskey, name, def);
+/* WALLIX: Config has default values - Begin */
+//    char *val = gpps_raw(sesskey, name, def);
+    char *val = gpps_raw(sesskey, name,
+        conf_has_default_values(conf) ? conf_get_str(conf, primary) : def);
+/* WALLIX: Config has default values - End */
     conf_set_str(conf, primary, val);
     sfree(val);
 }
@@ -150,6 +154,14 @@ static void gppfont(settings_r *sesskey, const char *name,
                     Conf *conf, int primary)
 {
     FontSpec *result = read_setting_fontspec(sesskey, name);
+/* WALLIX: Config has default values - Begin */
+    if (!result && conf_has_default_values(conf)) {
+        result = conf_get_fontspec(conf, primary);
+        if (result)
+            result = fontspec_new(result->name, result->isbold,
+                result->height, result->charset);
+    }
+/* WALLIX: Config has default values - End */
     if (!result)
         result = platform_default_fontspec(name);
     conf_set_fontspec(conf, primary, result);
@@ -159,6 +171,13 @@ static void gppfile(settings_r *sesskey, const char *name,
                     Conf *conf, int primary)
 {
     Filename *result = read_setting_filename(sesskey, name);
+/* WALLIX: Config has default values - Begin */
+    if (!result && conf_has_default_values(conf)) {
+        result = conf_get_filename(conf, primary);
+        if (result)
+            result = filename_from_str(result->path);
+    }
+/* WALLIX: Config has default values - End */
     if (!result)
         result = platform_default_filename(name);
     conf_set_filename(conf, primary, result);
@@ -186,7 +205,13 @@ static int gppi_raw(settings_r *sesskey, const char *name, int def)
 static void gppi(settings_r *sesskey, const char *name, int def,
                  Conf *conf, int primary)
 {
-    conf_set_int(conf, primary, gppi_raw(sesskey, name, def));
+/* WALLIX: Config has default values - Begin */
+//    conf_set_int(conf, primary, gppi_raw(sesskey, name, def));
+    conf_set_int(conf, primary,
+        gppi_raw(sesskey, name,
+              conf_has_default_values(conf)
+            ? conf_get_int(conf, primary) : def));
+/* WALLIX: Config has default values - End */
 }
 
 /*
@@ -770,6 +795,9 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_i(sesskey, "X11AuthType", conf_get_int(conf, CONF_x11_auth));
     write_setting_filename(sesskey, "X11AuthFile", conf_get_filename(conf, CONF_xauthfile));
     write_setting_b(sesskey, "LocalPortAcceptAll", conf_get_bool(conf, CONF_lport_acceptall));
+/* WALLIX: Map to loopback - Begin */
+    write_setting_b(sesskey, "MapToLoopback", conf_get_bool(conf, CONF_lport_loopback));
+/* WALLIX: Map to loopback - End */
     write_setting_b(sesskey, "RemotePortAcceptAll", conf_get_bool(conf, CONF_rport_acceptall));
     wmap(sesskey, "PortForwardings", conf, CONF_portfwd, true);
     write_setting_i(sesskey, "BugIgnore1", 2-conf_get_int(conf, CONF_sshbug_ignore1));
@@ -841,6 +869,13 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     conf_set_str(conf, CONF_remote_cmd, "");
     conf_set_str(conf, CONF_remote_cmd2, "");
     conf_set_str(conf, CONF_ssh_nc_host, "");
+
+/* WALLIX: Set cmdline password - Begin */
+    char *password = gpps_raw(sesskey, "Password", NULL);
+    if (password != NULL) {
+        set_cmdline_password(password);
+    }
+/* WALLIX: Set cmdline password - End */
 
     gpps(sesskey, "HostName", "", conf, CONF_host);
     gppfile(sesskey, "LogFileName", conf, CONF_logfilename);
@@ -1244,6 +1279,9 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     gppfile(sesskey, "X11AuthFile", conf, CONF_xauthfile);
 
     gppb(sesskey, "LocalPortAcceptAll", false, conf, CONF_lport_acceptall);
+/* WALLIX: Map to loopback - Begin */
+    gppb(sesskey, "MapToLoopback", 0, conf, CONF_lport_loopback);
+/* WALLIX: Map to loopback - End */
     gppb(sesskey, "RemotePortAcceptAll", false, conf, CONF_rport_acceptall);
     gppmap(sesskey, "PortForwardings", conf, CONF_portfwd);
     i = gppi_raw(sesskey, "BugIgnore1", 0); conf_set_int(conf, CONF_sshbug_ignore1, 2-i);
@@ -1305,7 +1343,14 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
 
 bool do_defaults(const char *session, Conf *conf)
 {
-    return load_settings(session, conf);
+/* WALLIX: Config has default values - Begin */
+//    return load_settings(session, conf);
+    const bool ret = load_settings(session, conf);
+
+    conf_set_default_values(conf, true);
+
+    return ret;
+/* WALLIX: Config has default values - End */
 }
 
 static int sessioncmp(const void *av, const void *bv)

@@ -29,6 +29,10 @@
 #define GSS_CTXT_MAYFAIL (1<<3) /* Context may expire during handshake */
 #endif
 
+/* WALLIX: Map to loopback - Begin */
+#define MAX_IPLOOP_ADDR 64
+/* WALLIX: Map to loopback - End */
+
 struct Ssh {
     Socket *s;
     Seat *seat;
@@ -138,6 +142,10 @@ struct Ssh {
     char *deferred_abort_message;
 
     bool need_random_unref;
+
+/* WALLIX: Map to loopback - Begin */
+    struct iploop ipl;
+/* WALLIX: Map to loopback - End */
 };
 
 
@@ -420,6 +428,12 @@ static void ssh_shutdown_internal(Ssh *ssh)
         ssh_ppl_free(ssh->base_layer);
         ssh->base_layer = NULL;
     }
+
+/* WALLIX: Map to loopback - Begin */
+    if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
+        unmap_ip_from_loopback(&ssh->ipl);
+    }
+/* WALLIX: Map to loopback - End */
 
     ssh->cl = NULL;
 }
@@ -987,6 +1001,88 @@ static char *ssh_init(const BackendVtable *vt, Seat *seat,
 
     random_ref(); /* do this now - may be needed by sharing setup code */
     ssh->need_random_unref = true;
+
+/* WALLIX: Map to loopback - Begin */
+    /* Map IP to loopback if SSH tunnel flag set. */
+    if (conf_get_bool(ssh->conf, CONF_lport_loopback)) {
+        char *loopback_addr[MAX_IPLOOP_ADDR];
+        int nb_loopback_addr = 0;
+        char *service_addr[MAX_IPLOOP_ADDR];
+        int nb_service_addr = 0;
+        bool addr_limit_reached = false;
+        char *key, *val;
+        for (val = conf_get_str_strs(ssh->conf, CONF_portfwd, NULL, &key);
+             val != NULL;
+             val = conf_get_str_strs(ssh->conf, CONF_portfwd, key, &key)) {
+            char *kp, *kp2;
+            char address_family, type;
+            char *saddr;
+
+            bool service_found = false;
+
+            kp = key;
+
+            address_family = 'A';
+            type = 'L';
+            if (*kp == 'A' || *kp == '4' || *kp == '6')
+                address_family = *kp++;
+            if (*kp == 'L' || *kp == 'R')
+                type = *kp++;
+
+            if ((kp2 = host_strchr(kp, ':')) != NULL) {
+                if (atoi(kp2 + 1) == 102) {
+                    service_found = true;
+                }
+
+                /*
+                 * There's a colon in the middle of the source port
+                 * string, which means that the part before it is
+                 * actually a source address.
+                 */
+                char *saddr_tmp = dupprintf("%.*s", (int)(kp2 - kp), kp);
+                saddr = host_strduptrim(saddr_tmp);
+                sfree(saddr_tmp);
+            } else {
+                saddr = NULL;
+            }
+
+            if (type == 'L') {
+                ULONG nteContext = 0;
+                if (!addr_limit_reached && nb_loopback_addr == MAX_IPLOOP_ADDR) {
+                    seat_connection_fatal(ssh->seat, "Too many IP addresses to map (>%d)", MAX_IPLOOP_ADDR);
+                    addr_limit_reached = true;
+                }
+                if (nb_loopback_addr < MAX_IPLOOP_ADDR) {
+                    char *saddr_service = saddr;
+                    bool already_in = false;
+                    for (int idx = 0; idx < nb_loopback_addr; idx++) {
+                        if (nullstrcmp(loopback_addr[idx], saddr) == 0) {
+                            already_in = true;
+                            saddr_service = loopback_addr[idx];
+                        }
+                    }
+                    if (!already_in) {
+                        loopback_addr[nb_loopback_addr++] = saddr;
+                    } else {
+                        sfree(saddr);
+                    }
+
+                    if (service_found) {
+                        service_addr[nb_service_addr++] = saddr_service;
+                    }
+                }
+            }
+        }
+
+        if (map_ip_to_loopback(&ssh->ipl, loopback_addr, nb_loopback_addr, service_addr, nb_service_addr) != 0) {
+            seat_connection_fatal(ssh->seat, "Cannot map IP(s) to loopback");
+        }
+
+        for (int idx = 0; idx < nb_loopback_addr; idx++) {
+            sfree(loopback_addr[idx]);
+        }
+    }
+/* WALLIX: Map to loopback - End */
 
     char *conn_err = connect_to_host(
         ssh, host, port, loghost, realhost, nodelay, keepalive);

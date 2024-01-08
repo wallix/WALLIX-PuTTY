@@ -54,6 +54,12 @@ static void cmdline_save_param(const char *p, const char *value, int pri)
 
 static char *cmdline_password = NULL;
 
+/* WALLIX: Set cmdline password - Begin */
+void set_cmdline_password(char *password) {
+    cmdline_password = password;
+}
+/* WALLIX: Set cmdline password - End */
+
 void cmdline_cleanup(void)
 {
     int pri;

@@ -1345,12 +1345,33 @@ static void portfwd_handler(dlgcontrol *ctrl, dlgparam *dlg,
             else
                 type = "D";
 
+/* WALLIX: Map to loopback - Begin */
+            int const map_to_loopback = conf_get_bool(conf, CONF_lport_loopback);
+/* WALLIX: Map to loopback - End */
             src = dlg_editbox_get(pfd->sourcebox, dlg);
-            if (!*src) {
-                dlg_error_msg(dlg, "You need to specify a source port number");
-                sfree(src);
-                return;
+/* WALLIX: Map to loopback - Begin */
+//            if (!*src) {
+//                dlg_error_msg(dlg, "You need to specify a source port number");
+//                sfree(src);
+//                return;
+//            }
+            if (map_to_loopback) {
+                if (!*src || !host_strchr(src, ':')) {
+                    dlg_error_msg(dlg,
+                                  "You need to specify a source address\n"
+                                  "in the form \"host.name:port\"");
+                    sfree(src);
+                    return;
+                }
+            } else {
+                char* endstr = "*";
+                if (!*src || strtoul(src, &endstr, 10) == 0 || *endstr != '\0') {
+                    dlg_error_msg(dlg, "You need to specify a source port number");
+                    sfree(src);
+                    return;
+                }
             }
+/* WALLIX: Map to loopback - End */
             if (*type != 'D') {
                 val = dlg_editbox_get(pfd->destbox, dlg);
                 if (!*val || !host_strchr(val, ':')) {
@@ -3075,6 +3096,12 @@ void setup_config_box(struct controlbox *b, bool midsession,
                       HELPCTX(ssh_tunnels_portfwd_localhost),
                       conf_checkbox_handler,
                       I(CONF_lport_acceptall));
+/* WALLIX: Map to loopback - Begin */
+        ctrl_checkbox(s, "Map local ip to loopback", 'b',
+                      HELPCTX(ssh_tunnels_portfwd_localhost),
+                      conf_checkbox_handler,
+                      I(CONF_lport_loopback));
+/* WALLIX: Map to loopback - End */
         ctrl_checkbox(s, "Remote ports do the same (SSH-2 only)", 'p',
                       HELPCTX(ssh_tunnels_portfwd_localhost),
                       conf_checkbox_handler,
@@ -3108,10 +3135,15 @@ void setup_config_box(struct controlbox *b, bool midsession,
                                          portfwd_handler, P(pfd));
         pfd->addbutton->column = 2;
         pfd->addbutton->delay_taborder = true;
-        pfd->sourcebox = ctrl_editbox(s, "Source port", 's', 40,
+/* WALLIX: Map to loopback - Begin */
+//        pfd->sourcebox = ctrl_editbox(s, "Source port", 's', 40,
+//                                      HELPCTX(ssh_tunnels_portfwd),
+//                                      portfwd_handler, P(pfd), P(NULL));
+//        pfd->sourcebox->column = 0;
+        pfd->sourcebox = ctrl_editbox(s, "Source", 's', 67,
                                       HELPCTX(ssh_tunnels_portfwd),
                                       portfwd_handler, P(pfd), P(NULL));
-        pfd->sourcebox->column = 0;
+/* WALLIX: Map to loopback - End */
         pfd->destbox = ctrl_editbox(s, "Destination", 'i', 67,
                                     HELPCTX(ssh_tunnels_portfwd),
                                     portfwd_handler, P(pfd), P(NULL));

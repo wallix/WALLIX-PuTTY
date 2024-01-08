@@ -2052,6 +2052,9 @@ NORETURN void cleanup_exit(int);
     X(INT, NONE, shadowboldoffset) /* in pixels */ \
     X(BOOL, NONE, crhaslf) \
     X(STR, NONE, winclass) \
+/* WALLIX: Map to loopback - Begin */ \
+    X(BOOL, NONE, lport_loopback) \
+/* WALLIX: Map to loopback - End */ \
     /* end of list */
 
 /* Now define the actual enum of option keywords using that macro. */
@@ -2094,6 +2097,10 @@ void conf_set_fontspec(Conf *conf, int key, const FontSpec *val);
 /* Serialisation functions for Duplicate Session */
 void conf_serialise(BinarySink *bs, Conf *conf);
 bool conf_deserialise(Conf *conf, BinarySource *src);/*returns true on success*/
+/* WALLIX: Config has default values - Begin */
+void conf_set_default_values(Conf *conf, bool flag);
+bool conf_has_default_values(Conf *conf);
+/* WALLIX: Config has default values - End */
 
 /*
  * Functions to copy, free, serialise and deserialise FontSpecs.

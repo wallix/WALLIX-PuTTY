@@ -16,7 +16,10 @@
 /* Accelerators used: clw */
 IDD_ABOUTBOX DIALOG DISCARDABLE 140, 40, 270, 136
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About PuTTY"
+/* WALLIX: About PuTTY - Begin */
+//CAPTION "About PuTTY"
+CAPTION "About WALLIX PuTTY"
+/* WALLIX: About PuTTY - End */
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON "&Close", IDOK, 216, 118, 48, 14
@@ -28,7 +31,10 @@ END
 /* Accelerators used: aco */
 IDD_MAINBOX DIALOG DISCARDABLE 0, 0, 300, 252
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY Configuration"
+/* WALLIX: PuTTY Configuration - Begin */
+//CAPTION "PuTTY Configuration"
+CAPTION "WALLIX PuTTY Configuration"
+/* WALLIX: PuTTY Configuration - End */
 FONT 8, "MS Shell Dlg"
 CLASS "PuTTYConfigBox"
 BEGIN
@@ -37,7 +43,10 @@ END
 /* Accelerators used: co */
 IDD_LOGBOX DIALOG DISCARDABLE 100, 20, 300, 119
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY Event Log"
+/* WALLIX: PuTTY Event Log - Begin */
+//CAPTION "PuTTY Event Log"
+CAPTION "WALLIX PuTTY Event Log"
+/* WALLIX: PuTTY Event Log - End */
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON "&Close", IDOK, 135, 102, 44, 14
@@ -48,7 +57,10 @@ END
 /* No accelerators used */
 IDD_LICENCEBOX DIALOG DISCARDABLE 50, 50, 326, 239
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY Licence"
+/* WALLIX: PuTTY Licence - Begin */
+//CAPTION "PuTTY Licence"
+CAPTION "WALLIX PuTTY Licence"
+/* WALLIX: PuTTY Licence - End */
 FONT 8, "MS Shell Dlg"
 BEGIN
     DEFPUSHBUTTON "OK", IDOK, 148, 219, 44, 14
@@ -59,7 +71,10 @@ END
 /* Accelerators used: achio */
 IDD_HOSTKEY DIALOG DISCARDABLE 50, 50, 340, 240
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY Security Alert"
+/* WALLIX: PuTTY Security Alert - Begin */
+//CAPTION "PuTTY Security Alert"
+CAPTION "WALLIX PuTTY Security Alert"
+/* WALLIX: PuTTY Security Alert - End */
 FONT 8, "MS Shell Dlg"
 CLASS "PuTTYHostKeyDialog"
 BEGIN
@@ -79,7 +94,10 @@ END
 /* Accelerators used: c */
 IDD_HK_MOREINFO DIALOG DISCARDABLE 140, 40, 400, 300
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY: information about the server's host key"
+/* WALLIX: PuTTY: information about the server's host key - Begin */
+//CAPTION "PuTTY: information about the server's host key"
+CAPTION "WALLIX PuTTY: information about the server's host key"
+/* WALLIX: PuTTY: information about the server's host key - End */
 FONT 8, "MS Shell Dlg"
 CLASS "PuTTYHostKeyMoreInfo"
 BEGIN
@@ -89,7 +107,10 @@ END
 /* Accelerators used: aco */
 IDD_CA_CONFIG DIALOG DISCARDABLE 0, 0, 350, 260
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PuTTY trusted host certification authorities"
+/* WALLIX: PuTTY trusted host certification authorities - Begin */
+//CAPTION "PuTTY trusted host certification authorities"
+CAPTION "WALLIX PuTTY trusted host certification authorities"
+/* WALLIX: PuTTY trusted host certification authorities - End */
 FONT 8, "MS Shell Dlg"
 CLASS "PuTTYConfigBox"
 BEGIN

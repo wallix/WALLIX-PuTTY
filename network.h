@@ -184,8 +184,13 @@ Socket *new_connection(SockAddr *addr, const char *hostname,
                        int port, bool privport,
                        bool oobinline, bool nodelay, bool keepalive,
                        Plug *plug, Conf *conf, Interactor *interactor);
+/* WALLIX: Map to loopback - Begin */
+//Socket *new_listener(const char *srcaddr, int port, Plug *plug,
+//                     bool local_host_only, Conf *conf, int addressfamily);
 Socket *new_listener(const char *srcaddr, int port, Plug *plug,
-                     bool local_host_only, Conf *conf, int addressfamily);
+                     bool local_host_only, bool map_to_loopback, Conf *conf,
+                     int addressfamily);
+/* WALLIX: Map to loopback - End */
 SockAddr *name_lookup(const char *host, int port, char **canonicalname,
                       Conf *conf, int addressfamily, LogContext *logctx,
                       const char *lookup_reason_for_logging);
@@ -230,8 +235,13 @@ SockAddr *sk_addr_dup(SockAddr *addr);
 Socket *sk_new(SockAddr *addr, int port, bool privport, bool oobinline,
                bool nodelay, bool keepalive, Plug *p);
 
+/* WALLIX: Map to loopback - Begin */
+//Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
+//                       bool local_host_only, int address_family);
 Socket *sk_newlistener(const char *srcaddr, int port, Plug *plug,
-                       bool local_host_only, int address_family);
+                       bool local_host_only, bool map_to_loopback,
+                       int address_family);
+/* WALLIX: Map to loopback - End */
 
 static inline Plug *sk_plug(Socket *s, Plug *p)
 { return s->vt->plug(s, p); }
@@ -432,5 +442,18 @@ static inline void deferred_socket_opener_free(DeferredSocketOpener *dso)
 { dso->vt->free(dso); }
 
 DeferredSocketOpener *null_deferred_socket_opener(void);
+
+/* WALLIX: Map to loopback - Begin */
+/*
+ * Used by WALLIX Bastion RAWTCPIP
+ */
+struct iploop {
+    char *exe;
+    void *event;
+    void *child;
+};
+int map_ip_to_loopback(struct iploop *ipl, char **addr, int n, char **addrSvc, int nSvc);
+int unmap_ip_from_loopback(struct iploop *ipl);
+/* WALLIX: Map to loopback - End */
 
 #endif

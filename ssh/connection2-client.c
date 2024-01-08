@@ -188,8 +188,16 @@ PktOut *ssh2_portfwd_chanopen(
      * numeric IP address, and some servers (e.g., Tectia) get upset
      * if it doesn't match this syntax.
      */
-    put_stringz(pktout, "0.0.0.0");
-    put_uint32(pktout, 0);
+/* WALLIX: IP and port of connected client - Begin */
+//    put_stringz(pktout, "0.0.0.0");
+//    put_uint32(pktout, 0);
+    /*
+     * These are not local network configuration but ip and port of the
+     * connected client.
+     */
+    put_stringz(pktout, peerinfo->addr_text);
+    put_uint32(pktout, peerinfo->port);
+/* WALLIX: IP and port of connected client - End */
 
     return pktout;
 }

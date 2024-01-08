@@ -68,7 +68,23 @@ struct conf_entry {
 
 struct conf_tag {
     tree234 *tree;
+
+/* WALLIX: Config has default values - Begin */
+    bool has_default_values;
+/* WALLIX: Config has default values - End */
 };
+
+/* WALLIX: Config has default values - Begin */
+void conf_set_default_values(Conf *conf, bool flag)
+{
+    conf->has_default_values = flag;
+}
+
+bool conf_has_default_values(Conf *conf)
+{
+    return conf->has_default_values;
+}
+/* WALLIX: Config has default values - End */
 
 /*
  * Because 'struct key' is the first element in 'struct conf_entry',
@@ -208,11 +224,19 @@ Conf *conf_new(void)
 
     conf->tree = newtree234(conf_cmp);
 
+/* WALLIX: Config has default values - Begin */
+    conf->has_default_values = false;
+/* WALLIX: Config has default values - End */
+
     return conf;
 }
 
 static void conf_clear(Conf *conf)
 {
+/* WALLIX: Config has default values - Begin */
+    conf->has_default_values = false;
+/* WALLIX: Config has default values - End */
+
     struct conf_entry *entry;
 
     while ((entry = delpos234(conf->tree, 0)) != NULL)
@@ -251,6 +275,10 @@ void conf_copy_into(Conf *newconf, Conf *oldconf)
                    valuetypes[entry->key.primary]);
         add234(newconf->tree, entry2);
     }
+
+/* WALLIX: Config has default values - Begin */
+    newconf->has_default_values = oldconf->has_default_values;
+/* WALLIX: Config has default values - End */
 }
 
 Conf *conf_copy(Conf *oldconf)
@@ -271,6 +299,13 @@ bool conf_get_bool(Conf *conf, int primary)
     assert(valuetypes[primary] == TYPE_BOOL);
     key.primary = primary;
     entry = find234(conf->tree, &key, NULL);
+if (!entry)
+{
+    char message[256];
+    _snprintf_s(message, _countof(message), _TRUNCATE,
+        "primary=%d", primary);
+    MessageBox(NULL, message, "WALLIX PuTTY", MB_OK);
+}
     assert(entry);
     return entry->value.u.boolval;
 }

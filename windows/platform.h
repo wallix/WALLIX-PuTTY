@@ -597,7 +597,10 @@ const char *win_strerror(int error);
 bool should_have_security(void);
 void restrict_process_acl(void);
 bool restricted_acl(void);
-void escape_registry_key(const char *in, strbuf *out);
+/* WALLIX: Escape registry key - Begin */
+//void escape_registry_key(const char *in, strbuf *out);
+void escape_registry_key(const char *in, strbuf *out, bool settings_come_from_registry);
+/* WALLIX: Escape registry key - End */
 void unescape_registry_key(const char *in, strbuf *out);
 
 bool is_console_handle(HANDLE);

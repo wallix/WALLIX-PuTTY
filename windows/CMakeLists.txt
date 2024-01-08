@@ -101,7 +101,7 @@ add_executable(putty
   putty.c
   help.c
   putty.rc)
-be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
+be_list(putty "WALLIX PuTTY" SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
