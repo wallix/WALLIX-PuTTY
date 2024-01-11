@@ -1,0 +1,16 @@
+@ECHO OFF
+
+SET /P SIGN_CERT_PASSWD=<%~DP0\SignCertPasswd.txt
+
+:SIGNING
+
+%1\SIGNTOOL.EXE SIGN /T http://timestamp.digicert.com /F %~DP0\SignCert.p12 /FD SHA256  /P %SIGN_CERT_PASSWD% %2
+
+IF %ERRORLEVEL% EQU 0 GOTO END
+IF %ERRORLEVEL% EQU 2 GOTO END
+
+PING -n 2 -w 500 localhost
+
+GOTO SIGNING
+
+:END
