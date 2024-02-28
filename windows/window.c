@@ -2267,7 +2267,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             MessageBox(hwnd, msg, title,
                        MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
             == IDOK)
+        {
+            close_session(NULL);
             DestroyWindow(hwnd);
+        }
         sfree(title);
         sfree(msg);
         sfree(additional);
